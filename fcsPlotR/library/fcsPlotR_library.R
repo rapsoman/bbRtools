@@ -9,7 +9,7 @@ library(boot)
 registerDoMC()
 getDoParWorkers()
 
-#### aq.loadConvertMultiFCSaq ####
+#### Helper functions for loading FCS files ####
 aq.loadFCS <-function(filePath){
   datFCS <- read.FCS(filePath,min.limit=NULL,transformation = 'linearize')  
   return(datFCS)
@@ -62,8 +62,68 @@ aq.loadConvertMultiFCS <- function(fileList,fileDir,condDict){
   }
   return(dat)
 }
+### tSNE calculations ####
+aq.calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='channel',
+                        id_var='id', group_var ='condition', scale=F,
+                        subsample_groups=F, subsample_mode='equal',
+                        verbose=T,
+                        ...){
+#Calculates the bhSNE from a melted data table
+#input_dat: melted data_table
+#channels: list of channels to be Used
+#channel_var: column with the channel names
+#value_var: column to be used as values
+#id_var: column name for the unique cell ID
+#scale: should the input data be rescaled? 
+#subsample_groups: T: resamples all groups to the group with the least members, Integer: resamples all groups to the integer
+#subsample_mode: 
+#  'equal': if integer provided to resample_groups all groups will contain min(resample_groups, min_groupsize) cells
+#  'unequal': if integer provided to resample_groups, all groups will contain maximally resample_groups cells (or less)
+#verbose: should bhSne be verbose?
 
-# small helper functions
+  # do subsampling
+  if (is.numeric(subsample_groups)){
+    if (subsample_mode == 'equal'){
+    min_n = min(input_dat[get(channel_var) == channels[1], .(n= .N), by=get(group_var)]$n)
+    subsample_groups = min(subsample_groups, min_n)
+    }
+    ids = input_dat[get(channel_var) == channels[1], .(fil = get(id_var)[sample.int(.N, min(subsample_groups, .N))]),by=get(group_var)]$fil
+    
+  } else if (subsample_groups){
+    min_n = min(input_dat[get(channel_var) == channels[1],.(n= .N), by=get(group_var)]$n)
+    ids = input_dat[get(channel_var) == channels[1], .(fil = get(id_var)[sample.int(.N, min_n)]),by=get(group_var)]$fil
+    
+  } else {
+    ids = input_dat[, get(id_var)]
+  }
+  
+  dt = dcast.data.table(input_dat[(get(channel_var) %in% good_channels) & get(id_var) %in% ids], formula = as.formula(paste(id_var, '~', channel_var)), value.var = value_var)
+  
+  if (scale){
+    tsnedat = scale(dt[, channels, with=F])
+    
+  } else {
+    tsnedat = dt[, channels, with=F]
+  }
+  
+  tsne_out <- Rtsne(tsnedat, verbose=verbose,...)
+  tsne_out$Y = data.table(bh_1=tsne_out$Y[,1], bh_2=tsne_out$Y[,2], id = dt[, get(id_var)])
+  setkeyv(tsne_out$Y, id_var)
+  tsne_out$channels = channels
+  tsne_out$scale= F
+  if (group_var %in% names(input_dat)){
+    tsne_out$groups= input_dat[, unique(get(group_var))]
+  } else {
+    tsne_out$groups = NaN
+  }
+  return(tsne_out)
+  tsne_out$subsample_groups = subsample_groups
+  tsne_out$subsample_mode = subsample_mode
+}
+
+
+
+### various small helper functions ####
 
 # calculate percentiles
 aq.getPerc <- function(x){
@@ -143,458 +203,6 @@ aq.plot_sumStats <- function(df,varName = 'value',
 }
 
 
-
-
-# simulate linear/log-linear/fkt-linear data with real cytof data
-# by assuming a maximal mean abundance per cell
-# and adding gaussian noise to the predicted data as well as to the
-# cytof measurements
-
-
-aq.simulateData <- function(sumStats,cAssCvSRM=0.1,cAssCvCyt=0.15,cAssMax=1,
-                            grpVar='channel',valVar = 'mean_c',fkt=function(x){x},OneToOne=F){
-  
-  # calc assumed conc and add the gaussian noise to the conc and to the cytof meas
-  if(!OneToOne){
-    sumStats[ ,
-              conc_ass := sapply(cAssMax*fkt(get(valVar))/max(fkt(get(valVar))),
-                                 function(x){
-                                   rnorm(n = 1,mean =x, sd = x * cAssCvSRM)}),
-              by=get(grpVar)]
-  } else {
-    # If 1to1, the two measurement types are assumed to be related with a direct correspondence.
-    sumStats[ ,
-              conc_ass := sapply(fkt(get(valVar)),
-                                 function(x){
-                                   rnorm(n = 1,mean =x, sd = x * cAssCvSRM)}),
-              by=get(grpVar)]  
-  }
-  
-  
-  sumStats[,mean_ass:= sapply(mean_c,function(x){
-    rnorm(n = 1,mean =x, sd = x * cAssCvCyt)})]
-  
-  return(sumStats)
-}
-
-
-# plot the predictions
-aq.predPlot <- function(sumStats,
-                        dat,
-                        lmForm=y~x,
-                        title,
-                        xval='mean_ass',
-                        yval='conc_ass',
-                        condVar = 'condition',
-                        pTitle='Prediction accuracy'){
-  
-  sumStats_perAB = subset(melt(aq.getStats(dat,'value',c('channel')),
-                               id.vars=c('channel'),
-                               variable.factor=F,
-                               variable.name='stats'),!stats %in% c('max_c','min_c') & 
-                            channel %in% sumStats$channel)
-  
-  
-  p = ggplot(sumStats,aes_string(x=xval,y=yval))+
-    geom_smooth(method='lm',formula=lmForm,fullrange=T)+
-    geom_point(aes_string(colour=condVar))+
-    scale_colour_discrete(h=c(170,230), 
-                          l=rev(seq(0,80,length.out=
-                                      sumStats[,length(unique(get(condVar)))]+2))) +
-    facet_wrap(~channel,scale='free')+
-    expand_limits(x=0,y=0)+
-    geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-    #add for legend
-    geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-    ggtitle(pTitle)
-}
-
-# calculates the predictions with linear models
-
-# plot the predictions
-aq.plotMSvsCy<- function(datMS,
-                         datCy,
-                         lmForm=y~x,
-                         ms_val='MS_mn',
-                         ms_std = 'MS_std',
-                         cy_val='value',
-                         cy_summary = 'mean',# which summary stats to use 'mean' or 'median','mean0.1trim'
-                         commonID = 'channel',
-                         ms_ID ='EG.ProteinId',
-                         cy_ID = 'channel',
-                         condVar = 'perturbation',
-                         groupVar = 'cells',
-                         pTitle='MS vs cyTOF',
-                         xlab = 'CyTOF [counts/cell]',
-                         ylab = 'SRM [copies/cell]',
-                         nCols = 4,
-                         nPred = 100,
-                         sizePoint = 5,
-                         fitMethod = 'lm' # lm or weightedLM
-){
-  
-  # merge MS and cyTOF data
-  datCy.stats =aq.getStats(datCy,cy_val,unique(c(commonID,cy_ID,condVar,groupVar)),function(x){x},meltTab=F)
-  cy_summary2 = paste(cy_summary,'_c',sep='')
-  
-  setkeyv(datMS,c(commonID,condVar,groupVar))
-  setkeyv(datCy.stats,c(commonID,condVar,groupVar))
-  
-  
-  msCols= unique(c(ms_ID,commonID,ms_val,ms_std,condVar,groupVar))
-  cyCols = unique(c(cy_ID,commonID,cy_summary2,condVar,groupVar))
-  joinDat = merge(datMS[,msCols,with=F],datCy.stats[,cyCols,with=F],all = T,allow.cartesian=TRUE)
-  
-  joinDat[,groupN := paste(get(cy_ID),'vs',get(ms_ID))]
-  joinDat = subset(joinDat,!is.na(get(cy_ID)) & !is.na(get(ms_ID)) & !is.na(get(cy_summary2)) & !is.na(get(ms_val)))
-  joinDat[,condition:= paste(cells,perturbation,sep='_')]
-  
-  
-  
-  # joinDat[,groupLab  := paste(groupN,lm_eqn(get(cy_summary2),get(ms_val)),sep='\n'),by=groupN]
-  #   sumStats_perAB = subset(melt(aq.getStats(dat,'value',c('channel')),
-  #                                id.vars=c('channel'),
-  #                                variable.factor=F,
-  #                                variable.name='stats'),!stats %in% c('max_c','min_c') & 
-  #                             channel %in% sumStats$channel)
-  
-  
-  if (fitMethod == 'lm'){
-    
-    # calculate the equation
-    lm_eqn = function(x,y){
-      m = lm(y~x);
-      eq <- substitute(paste("y=" , a ,"+", b ,"x,\n r2 =",r2), 
-                       list(a = format(coef(m)[1], digits = 2), 
-                            b = format(coef(m)[2], digits = 2), 
-                            r2 = format(summary(m)$r.squared, digits = 3)))
-      
-      return(as.character(eval(eq)));          
-    }
-    
-    joinDat[,groupLab  := paste(groupN,lm_eqn(get(cy_summary2),get(ms_val)),sep='\n'),by=groupN]
-    p = ggplot(joinDat,aes_string(x=cy_summary2,y=ms_val))+
-      geom_smooth(method='lm',formula=lmForm,fullrange=T)+
-      geom_point(aes_string(colour=groupVar,shape=condVar),size=sizePoint)+
-      #     scale_colour_discrete(h=c(170,230), 
-      #                           l=rev(seq(0,80,length.out=
-      #                                       sumStats[,length(unique(get(condVar)))]+2))) +
-      facet_wrap(as.formula(paste('~','groupLab')),scale='free',ncol=nCols)+
-      expand_limits(x=0,y=0)+
-      # geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-      #add for legend
-      #geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-      ggtitle(pTitle)+
-      xlab(xlab)+
-      ylab(ylab)+
-      geom_errorbar(aes_string(ymax=paste(ms_val,'+ ',ms_std),ymin=paste(ms_val,'-',ms_std)))
-  } else if (fitMethod =='weightedLM'){
-    
-    # fit the  weighted lm
-    lmDat = joinDat[,list(
-      lmfit= list(lm(get(ms_val)~get(cy_summary2), weights = 1/(get(ms_std)^2))),
-      maxX = max(get(cy_summary2)),
-      minX = 0
-    ),by=groupN]
-    
-    predDat = lmDat[,list(newX = seq(minX,maxX,length=nPred),
-                          lmfit=lmfit),by=groupN]
-    setkey(lmDat,groupN)
-    setnames(predDat,'newX',cy_summary2)
-    predDat = predDat[,list(predY=predict(lmDat[.BY]$lmfit[[1]],newdata = .SD ,interval = "none"),
-                            pred_lwr=predict(lmDat[.BY]$lmfit[[1]],newdata = .SD , interval = "confidence", level = 0.95)[,2],
-                            pred_upr=predict(lmDat[.BY]$lmfit[[1]],newdata = .SD ,interval = "confidence", level = 0.95)[,3],
-                            newX = get(cy_summary2)),
-                      by=c('groupN')]
-    # 
-    setnames(predDat,'newX',cy_summary2)
-    setnames(predDat,'predY',ms_val)
-    
-    #
-    p = ggplot(joinDat,aes_string(x=cy_summary2,y=ms_val))+
-      #  geom_smooth(method='lm',formula=lmForm,fullrange=T)+
-      geom_point(aes_string(colour=groupVar,shape=condVar),size=sizePoint)+
-      #     scale_colour_discrete(h=c(170,230), 
-      #                           l=rev(seq(0,80,length.out=
-      #                                       sumStats[,length(unique(get(condVar)))]+2))) +
-      facet_wrap(as.formula(paste('~','groupN')),scale='free',ncol=nCols)+
-      expand_limits(x=0,y=0)+
-      # geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-      #add for legend
-      #geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-      ggtitle(pTitle)+
-      xlab(xlab)+
-      ylab(ylab)+
-      geom_errorbar(aes_string(ymax=paste(ms_val,'+ ',ms_std),ymin=paste(ms_val,'-',ms_std)))+
-      geom_line(data = predDat, colour = "blue") + 
-      geom_ribbon(mapping = aes(ymax = pred_upr, ymin = pred_lwr), data = predDat, 
-                  alpha = 0.4, fill = "grey60")
-    
-  } else if (fitMethod == 'lmPerCell') {
-    
-    # calculate the equation
-    lm_eqn = function(x,y){
-      m = lm(y~x);
-      eq <- substitute(paste("y=" , a ,"+", b ,"x,\n r2 =",r2), 
-                       list(a = format(coef(m)[1], digits = 2), 
-                            b = format(coef(m)[2], digits = 2), 
-                            r2 = format(summary(m)$r.squared, digits = 3)))
-      
-      return(as.character(eval(eq)));          
-    }
-    
-    joinDat[,groupLab  := paste(groupN,lm_eqn(get(cy_summary2),get(ms_val)),sep='\n'),by=groupN]
-    p = ggplot(joinDat,aes_string(x=cy_summary2,y=ms_val))+
-      
-      geom_point(aes_string(colour=groupVar,shape=condVar),size=sizePoint)+
-      geom_smooth(method='lm',formula=lmForm,fullrange=F,aes_string(group=groupVar))+
-      #     scale_colour_discrete(h=c(170,230), 
-      #                           l=rev(seq(0,80,length.out=
-      #                                       sumStats[,length(unique(get(condVar)))]+2))) +
-      facet_wrap(as.formula(paste('~','groupLab')),scale='free',ncol=nCols)+
-      expand_limits(x=0,y=0)+
-      # geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-      #add for legend
-      #geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-      ggtitle(pTitle)+
-      xlab(xlab)+
-      ylab(ylab)+
-      geom_errorbar(aes_string(ymax=paste(ms_val,'+ ',ms_std),ymin=paste(ms_val,'-',ms_std)))
-    
-  }else if (fitMethod == 'lmPerCell2') {
-    
-    # calculate the equation
-    lm_eqn = function(x,y){
-      m = lm(y~x);
-      eq <- substitute(paste("y=" , a ,"+", b ,"x,\n r2 =",r2), 
-                       list(a = format(coef(m)[1], digits = 2), 
-                            b = format(coef(m)[2], digits = 2), 
-                            r2 = format(summary(m)$r.squared, digits = 3)))
-      
-      return(as.character(eval(eq)));          
-    }
-    
-    joinDat[,groupLab  := paste(groupN,lm_eqn(get(cy_summary2),get(ms_val)),sep='\n'),by=groupN]
-    p = ggplot(joinDat,aes_string(x=cy_summary2,y=ms_val))+
-      
-      geom_point(aes_string(colour=groupVar,shape=condVar),size=sizePoint)+
-      geom_smooth(method='lm',formula=lmForm,fullrange=T,aes_string(group=groupVar))+
-      #     scale_colour_discrete(h=c(170,230), 
-      #                           l=rev(seq(0,80,length.out=
-      #                                       sumStats[,length(unique(get(condVar)))]+2))) +
-      facet_grid(as.formula(paste('groupLab','~',groupVar)))+
-      expand_limits(x=0,y=0)+
-      # geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-      #add for legend
-      #geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-      ggtitle(pTitle)+
-      xlab(xlab)+
-      ylab(ylab)+
-      geom_errorbar(aes_string(ymax=paste(ms_val,'+ ',ms_std),ymin=paste(ms_val,'-',ms_std)))
-    
-  } else if(fitMethod == 'lmAllPepPlot'){
-    
-    # calculate the equation
-    lm_eqn = function(x,y){
-      m = lm(y~x);
-      eq <- substitute(paste("y=" , a ,"+", b ,"x,\n r2 =",r2), 
-                       list(a = format(coef(m)[1], digits = 2), 
-                            b = format(coef(m)[2], digits = 2), 
-                            r2 = format(summary(m)$r.squared, digits = 3)))
-      
-      return(as.character(eval(eq)));          
-    }
-    joinDat[,groupN := paste(get(commonID),'all peptides')]
-    joinDat[,groupLab  := paste(groupN,lm_eqn(get(cy_summary2),get(ms_val)),sep='\n'),by=groupN]
-    p = ggplot(joinDat,aes_string(x=cy_summary2,y=ms_val))+
-      geom_smooth(method='lm',formula=lmForm,fullrange=T)+
-      geom_point(aes_string(colour='condition',shape=ms_ID),size=sizePoint)+
-      
-      
-      #     scale_colour_discrete(h=c(170,230), 
-      #                           l=rev(seq(0,80,length.out=
-      #                                       sumStats[,length(unique(get(condVar)))]+2))) +
-      facet_wrap(as.formula(paste('~','groupLab')),scale='free',ncol=nCols)+
-      expand_limits(x=0,y=0)+
-      # geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-      #add for legend
-      #geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-      ggtitle(pTitle)+
-      xlab(xlab)+
-      ylab(ylab)+
-      geom_errorbar(aes_string(ymax=paste(ms_val,'+ ',ms_std),ymin=paste(ms_val,'-',ms_std)))
-  }
-  else  { error('fitMethod not found!')}
-  
-  
-  # setkey(joinDat,groupN)
-  # p = ggplot(joinDat,aes_string(x=cy_summary2,y=ms_val))+
-  #   geom_smooth(method='lm',formula='y~x',fullrange=T)+
-  #   geom_point(aes_string(colour=groupVar,shape=condVar))+
-  # 
-  #   #     scale_colour_discrete(h=c(170,230), 
-  #   #                           l=rev(seq(0,80,length.out=
-  #   #                                       sumStats[,length(unique(get(condVar)))]+2))) +
-  #   facet_wrap(as.formula(paste('~',groupVar)),scale='free',ncol=3)+
-  #   expand_limits(x=0,y=0)+
-  #   # geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-  #   #add for legend
-  #   #geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-  #   ggtitle(pTitle)+
-  #   xlab(xlab)+
-  #   ylab(ylab)+ 
-  #   geom_errorbar(aes_string(ymax=paste(ms_val,'+ ',ms_std),ymin=paste(ms_val,'-',ms_std)))
-  # 
-  # 
-  #   geom_line(data = predDat, colour = "blue") + 
-  #   geom_ribbon(mapping = aes(ymax = pred_upr, ymin = pred_lwr), data = predDat, 
-  #               alpha = 0.4, fill = "grey60")
-  
-  
-  return(p)
-}
-
-
-
-
-aq.fitDualLm = function(joinDat = joinDat, # the data set
-                        markCol = 'EG.ModifiedSequence', #
-                        condCol ='condition',
-                        groupVar = 'EG.ProteinId',
-                        lmForm=y~x,
-                        xCol='mean_c',
-                        yCol='MS_mn',
-                        r2Cut=0.2
-){
-  # This will iteratively adjust the cell counts in order to improve
-  # the fit
-  
-  # fit the lm
-  #joinDat[,groupN := paste(get(condCol),'vs',get(markCol))]
-  joinDat[,adjustedMS := get(yCol)]
-  
-  for (i in 1:500){
-    setkeyv(joinDat,markCol)
-    lmDat = joinDat[,list(
-      lmFit= list(lm(adjustedMS~get(xCol)))
-    ),by=c(markCol)]
-    
-    setkeyv(lmDat,markCol)
-    # get the r2
-    lmDat[,r2 := summary(lmFit[[1]])$r.squared,by=c(markCol)]
-    
-    # filter by r2
-    fitJoinDat=  joinDat[lmDat[r2>r2Cut,get(markCol)]]
-    
-    #
-    
-    
-    setnames(fitJoinDat,markCol,'markcol')
-    # predict values by lm
-    fitJoinDat[,predY := predict(lmDat[.BY[1],lmFit][[1]],newdata = .SD),by=markcol]
-    fitJoinDat[,condY :=1]
-    fitJoinDat[,condX := adjustedMS/predY]
-    
-    #   # fit the condition specific lm
-    #   lmDatCond = fitJoinDat[,list(
-    #     lmFit= list(lm(condY ~ condX+0))
-    #   ),by=c(condCol)]
-    #   
-    #   lmDatCond[,corrCoef := coef(lmFit[[1]]),by=c(condCol)]
-    #   setkeyv(lmDatCond,condCol)
-    #   # predict the adjusted ms values
-    #   setkeyv(joinDat,condCol)
-    #   joinDat[fitJoinDat[,unique(get(condCol))],adjustedMS := adjustedMS*lmDatCond[get(condCol),corrCoef]]
-    setkeyv(joinDat,condCol)
-    setkeyv(fitJoinDat,condCol)
-    adjDat = fitJoinDat[,list(adjFac = 1/median(condX)),by=c(condCol)]
-    setkeyv(adjDat,condCol)
-    #joinDat[fitJoinDat[,unique(get(condCol))],adjFac := adjDat[.BY,adjFac],by=c(condCol)]
-    
-    joinDat[fitJoinDat[,unique(get(condCol))],adjustedMS := adjustedMS*adjDat[.BY,adjFac],by=c(condCol)]
-    
-  }
-  
-  joinDat[,adjustedMS := get(yCol)]
-  # update each condition randomly by its own
-  for (curCond  in sample(rep(joinDat[,unique(get(condCol))],5))){
-    setkeyv(joinDat,markCol)
-    lmDat = joinDat[,list(
-      lmFit= list(lm(adjustedMS~get(xCol)))
-    ),by=c(markCol)]
-    
-    setkeyv(lmDat,markCol)
-    # get the r2
-    lmDat[,r2 := summary(lmFit[[1]])$r.squared,by=c(markCol)]
-    
-    # filter by r2
-    fitJoinDat=  joinDat[lmDat[r2>r2Cut,get(markCol)]]
-    
-    #
-    
-    
-    setnames(fitJoinDat,markCol,'markcol')
-    # predict values by lm
-    fitJoinDat[,predY := predict(lmDat[.BY[1],lmFit][[1]],newdata = .SD),by=markcol]
-    fitJoinDat[,condY :=1]
-    fitJoinDat[,condX := adjustedMS/predY]
-    
-    #   # fit the condition specific lm
-    #   lmDatCond = fitJoinDat[,list(
-    #     lmFit= list(lm(condY ~ condX+0))
-    #   ),by=c(condCol)]
-    #   
-    #   lmDatCond[,corrCoef := coef(lmFit[[1]]),by=c(condCol)]
-    #   setkeyv(lmDatCond,condCol)
-    #   # predict the adjusted ms values
-    #   setkeyv(joinDat,condCol)
-    #   joinDat[fitJoinDat[,unique(get(condCol))],adjustedMS := adjustedMS*lmDatCond[get(condCol),corrCoef]]
-    setkeyv(joinDat,condCol)
-    setkeyv(fitJoinDat,condCol)
-    adjDat = fitJoinDat[,list(adjFac = 1/mean(condX,trim=0.2)),by=c(condCol)]
-    setkeyv(adjDat,condCol)
-    #joinDat[fitJoinDat[,unique(get(condCol))],adjFac := adjDat[.BY,adjFac],by=c(condCol)]
-    
-    joinDat[curCond,adjustedMS := adjustedMS*adjDat[.BY,adjFac],by=c(condCol)]
-    
-  }
-  nCols =7
-  pTitle = 'bla'
-  p2 = ggplot(joinDat,aes_string(x=xCol,y='adjustedMS'))+
-    geom_smooth(method='lm',formula=lmForm,fullrange=T)+
-    geom_point(aes_string(colour=condCol))+
-    #     scale_colour_discrete(h=c(170,230), 
-    #                           l=rev(seq(0,80,length.out=
-    #                                       sumStats[,length(unique(get(condVar)))]+2))) +
-    geom_point(data=joinDat,aes_string(x=xCol,y=yCol))+
-    facet_wrap(as.formula(paste('~',markCol)),scale='free',ncol = nCols)+
-    expand_limits(x=0,y=0)
-  # geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-  #add for legend
-  #geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-  #  ggtitle(pTitle)+
-  #  xlab(xlab)+
-  #  ylab(ylab)+
-  #  geom_errorbar(aes_string(ymax=paste(ms_val,'+ ',ms_std),ymin=paste(ms_val,'-',ms_std)))
-  return(p2)
-  
-  
-  #   setkey(lmDat,groupN)
-  #   setnames(predDat,'newX',cy_summary2)
-  #   predDat = predDat[,list(predY=predict(lmDat[.BY]$lmfit[[1]],newdata = .SD ,interval = "none"),
-  #                           pred_lwr=predict(lmDat[.BY]$lmfit[[1]],newdata = .SD , interval = "confidence", level = 0.95)[,2],
-  #                           pred_upr=predict(lmDat[.BY]$lmfit[[1]],newdata = .SD ,interval = "confidence", level = 0.95)[,3],
-  #                           newX = get(cy_summary2)),
-  #                     by=c('groupN')]
-  #   
-  #   setnames(predDat,'newX',cy_summary2)
-  #   setnames(predDat,'predY',ms_val)
-  
-  
-  
-}
-
-
 aq.allComb = function(cDat,idvar='xcat',varvar='ycat',valvar='val'){
   cDat =melt(dcast.data.table(cDat,paste(idvar,varvar,sep='~'),value.var=valvar),
              id.vars = idvar,
@@ -603,90 +211,4 @@ aq.allComb = function(cDat,idvar='xcat',varvar='ycat',valvar='val'){
   return(cDat)
 }
 
-
-# plot the predictions
-aq.plotMSvsCy_complete<- function(dat,
-                                  lmForm=y~x,
-                                  ms_val='ms.copynr.per.cell',
-                                  ms_summary='MS_mn',
-                                  ms_summary_sd = 'MS_std_comb',
-                                  
-                                  ms_ID = 'EG.StrippedSequence',
-                                  cy_ID = 'channel',
-                                  cy_summary = "cytof_mean0.1trim_c",# which summary stats to use 'mean' or 'median','mean0.1trim'
-                                  cy_summary_sd = 'cytof_mean0.1trim_sd_c',
-                                  condVar = 'perturbation',
-                                  groupVar = 'cells',
-                                  pTitle='MS vs cyTOF',
-                                  xlab = 'CyTOF [counts/cell]',
-                                  ylab = 'SRM [copies/cell]',
-                                  nCols = 4,
-                                  nPred = 100,
-                                  sizePoint = 5,
-                                  fitMethod = 'lm' # lm or weightedLM
-){
-  
-  # merge MS and cyTOF data
-  
-  
-  if (fitMethod == 'lm'){
-    
-    # calculate the equation
-    lm_eqn = function(x,y){
-      m = lm(y~x);
-      eq <- substitute(paste("y=" , a ,"+", b ,"x,\n r2 =",r2), 
-                       list(a = format(coef(m)[1], digits = 2), 
-                            b = format(coef(m)[2], digits = 2), 
-                            r2 = format(summary(m)$r.squared, digits = 3)))
-      
-      return(as.character(eval(eq)));          
-    }
-    dat[,groupN := paste(get(cy_ID),'vs',get(ms_ID))]
-    dat[,groupLab  := paste(groupN,lm_eqn(get(cy_summary),get(ms_summary)),sep='\n'),by=groupN]
-    p = ggplot(dat,aes_string(x=cy_summary,y=ms_summary))+
-      geom_smooth(method='lm',formula=lmForm,fullrange=T)+
-      geom_point(aes_string(x=cy_summary,y=ms_val,colour=groupVar,shape=condVar),size=sizePoint)+
-      #     scale_colour_discrete(h=c(170,230), 
-      #                           l=rev(seq(0,80,length.out=
-      #                                       sumStats[,length(unique(get(condVar)))]+2))) +
-      facet_wrap(as.formula(paste('~','groupLab')),scale='free',ncol=nCols)+
-      expand_limits(x=0,y=0)+
-      # geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-      #add for legend
-      #geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-      ggtitle(pTitle)+
-      xlab(xlab)+
-      ylab(ylab)+
-      geom_errorbar(aes_string(ymax=paste(ms_summary,'+ ',ms_summary_sd),ymin=paste(ms_summary,'-',ms_summary_sd),
-                               xmax=paste(cy_summary,'+ ',cy_summary_sd),xmin=paste(cy_summary,'-',cy_summary_sd)))+
-      geom_errorbarh(aes_string(xmax=paste(cy_summary,'+ ',cy_summary_sd),xmin=paste(cy_summary,'-',cy_summary_sd)))
-  }   else  { error('fitMethod not found!')}
-  
-  
-  # setkey(joinDat,groupN)
-  # p = ggplot(joinDat,aes_string(x=cy_summary2,y=ms_val))+
-  #   geom_smooth(method='lm',formula='y~x',fullrange=T)+
-  #   geom_point(aes_string(colour=groupVar,shape=condVar))+
-  # 
-  #   #     scale_colour_discrete(h=c(170,230), 
-  #   #                           l=rev(seq(0,80,length.out=
-  #   #                                       sumStats[,length(unique(get(condVar)))]+2))) +
-  #   facet_wrap(as.formula(paste('~',groupVar)),scale='free',ncol=3)+
-  #   expand_limits(x=0,y=0)+
-  #   # geom_vline(data=sumStats_perAB,aes(xintercept=value,linetype=stats),alpha=0.8)+
-  #   #add for legend
-  #   #geom_line(data=sumStats_perAB,aes(x=value,y=Inf,linetype=stats))+
-  #   ggtitle(pTitle)+
-  #   xlab(xlab)+
-  #   ylab(ylab)+ 
-  #   geom_errorbar(aes_string(ymax=paste(ms_val,'+ ',ms_std),ymin=paste(ms_val,'-',ms_std)))
-  # 
-  # 
-  #   geom_line(data = predDat, colour = "blue") + 
-  #   geom_ribbon(mapping = aes(ymax = pred_upr, ymin = pred_lwr), data = predDat, 
-  #               alpha = 0.4, fill = "grey60")
-  
-  
-  return(p)
-}
 
