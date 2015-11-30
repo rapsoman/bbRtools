@@ -35,8 +35,8 @@ plotHeight =180
 idCol = c('Time','Event_length','barcode','condition')
 
 #### Script
-condDict = aq.getInfoFromFileList(list.files(fileDir),'_',c(grpVarPos,orderVarPos))
-dat <- aq.loadConvertMultiFCS(list.files(fileDir),fileDir,condDict,subSample=subSample)
+condDict = bb.getInfoFromFileList(list.files(fileDir),'_',c(grpVarPos,orderVarPos))
+dat <- bb.loadConvertMultiFCS(list.files(fileDir),fileDir,condDict,subSample=subSample)
 
 # remove unecessary columns
 dat = dat[,-grep("Beads|BC.|Iridium193|Iridium191|bead|MCB|File\ Number|DNA|Event\ \\#", colnames(dat)), with=FALSE]
@@ -49,7 +49,7 @@ dat =melt(dat,id.vars=idCol,
 # censor small values
 dat[value < 1,value:=1]
 
-p = aq.plot_sumStats_grouped(dat,varName = 'value',
+p = bb.plot_sumStats_grouped(dat,varName = 'value',
                      condName = 'condition',
                      channelName = 'channel',
                      fkt=fkt,

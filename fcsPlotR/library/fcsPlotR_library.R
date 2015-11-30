@@ -10,12 +10,27 @@ registerDoMC()
 getDoParWorkers()
 
 #### Helper functions for loading FCS files ####
-aq.loadFCS <-function(filePath){
-  datFCS <- read.FCS(filePath,min.limit=NULL,transformation = 'linearize')  
+
+
+#' Wrapper for flow Core read.FCS
+#'
+#' @param filePath path to the FCS file
+#' @return A flowframe object
+#' @examples
+#' read.FCS('/test/testfcs.fcs')
+bb.loadFCS <-function(filePath, ...){
+  # a wrapper to the standard read.FCS, optimized for cyTOF data 
+  datFCS <- read.FCS(filePath,min.limit=NULL,transformation = 'linearize', ...)  
   return(datFCS)
 }
 
-aq.flowFrame2dt <-function(datFCS){
+#' Converts FlowFrame to data table
+#' 
+#' @param datFCS A flowframe e.g. from read.FCS or bb.loadFCS
+#' @return A data.table with row=cell, column=Channel
+#' @examples
+#' read.FCS('/test/testfcs.fcs')
+bb.flowFrame2dt <-function(datFCS){
   # converts a flow frame from read.FCS to a data table
   dt = datFCS@exprs
   colnames(dt) = make.names(make.unique(colnames(dt)))
@@ -28,64 +43,99 @@ aq.flowFrame2dt <-function(datFCS){
   return(dt)
 }
 
-aq.flowFrame2metaDt <-function(datFCS){
-  # gets the metadata table
-  metaDt <- data.table(datFCS@parameters@data)
-  return(metaDt)
-}
-
-aq.getInfoFromString<- function(name,sep='_',strPos=2,censorStr='.fcs'){
-  tp <- gsub(censorStr,'',strsplit(name,sep)[[1]][strPos])
-  tp <- paste(tp,collapse = sep)
-  return(tp)
-}
-
-aq.getInfoFromFileList <- function(fileList,sep,strPos,censorStr='.fcs'){
-  condDict = sapply(fileList,function(file){aq.getInfoFromString(file,sep,strPos,censorStr)})
-  names(condDict) <- fileList
-  return(condDict)
-}
-
-aq.loadConvertMultiFCS <- function(fileList,fileDir,condDict){
-  # fileDir: from which directory should the fcs files be read
-  # condition = a named list (dictionary) that assigns filenames to condition
+#' Loads multiple FCS files at once
+#'
+#' @param fileList List of files to be loaded
+#' @param fileDir the base directory for the files or a directory with FCS files
+#' @param condDict a named vector which maps Filenames to condition
+#' 
+#' @return a dataframe with all combined FCS files
+bb.loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN){
+  if (is.na(fileList)){
+    fileList = list.files(fileList, pattern='*.fcs')
+  }
   dat = data.table()
   for(file in fileList){
     if(file_ext(file) =='fcs'){
-      cond = condDict[[file]]
-      #tp = aq.getInfoFromString(file,sep='_',strPos=condPos,censorStr='.fcs')
+      if (is.na(condDict)){
+        cond = condDict[[file]]
+      } else {
+        cond = file
+      }
+      
       #load and convert to dt
-      tmpDT <- aq.flowFrame2dt(aq.loadFCS(file.path(fileDir,file)))
+      tmpDT <- bb.flowFrame2dt(bb.loadFCS(file.path(fileDir,file)))
       #combine dt
       dat = rbindlist(list(dat,tmpDT[,'condition':=cond]), fill=T)
     }
   }
   return(dat)
 }
-### tSNE calculations ####
-aq.calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='channel',
+
+#' Generates a metadata table from a
+#'
+#'
+#bb.flowFrame2metaDt <-function(datFCS){
+#  # gets the metadata table
+#  metaDt <- data.table(datFCS@parameters@data)
+#  return(metaDt)
+#}
+
+
+#' Extracts information from string fields
+#' 
+#' @param name a string
+#' @param seq the seperator that seperates fields in the string
+#' @param strPos numeric or vector: indicates which positions of the string should be extracted
+#' @param censorStr string that gets ignored
+#' @return The extracted stringfield
+#'
+bb.getInfoFromString<- function(name,sep='_',strPos=2,censorStr='.fcs'){
+  tp <- gsub(censorStr,'',strsplit(name,sep)[[1]][strPos])
+  tp <- paste(tp,collapse = sep)
+  return(tp)
+}
+
+
+#' Parses a list of strings and gets the corresponding information
+#' 
+#' See \code(bb.getInfoFromString) for more information
+#'
+bb.getInfoFromFileList <- function(fileList,sep='_',strPos=2,censorStr='.fcs'){
+  condDict = sapply(fileList,function(file){bb.getInfoFromString(file,sep,strPos,censorStr)})
+  names(condDict) <- fileList
+  return(condDict)
+}
+
+
+
+#' Calculates the bhSNE from a melted data table
+#'
+#' @param input_dat melted data_table
+#' @param channels list of channels to be Used
+#' @param channel_var column with the channel names
+#' @param value_var column to be used as values
+#' @param id_var column name for the unique cell ID
+#' @param group_var variable that groups the table
+#' @param scale should the input data be rescaled? 
+#' @param subsample_groups T: resamples all groups to the group with the least members, Integer: resamples all groups to the integer
+#' @param subsample_mode 
+#'  'equal': if integer provided to resample_groups all groups will contain min(resample_groups, min_groupsize) cells
+#'  'unequal': if integer provided to resample_groups, all groups will contain maximally resample_groups cells (or less)
+#' @param verbose: should bhSne be verbose?
+#' 
+#' @return 
+bb.calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='channel',
                         id_var='id', group_var ='condition', scale=F,
                         subsample_groups=F, subsample_mode='equal',
                         verbose=T,
                         ...){
-#Calculates the bhSNE from a melted data table
-#input_dat: melted data_table
-#channels: list of channels to be Used
-#channel_var: column with the channel names
-#value_var: column to be used as values
-#id_var: column name for the unique cell ID
-#scale: should the input data be rescaled? 
-#subsample_groups: T: resamples all groups to the group with the least members, Integer: resamples all groups to the integer
-#subsample_mode: 
-#  'equal': if integer provided to resample_groups all groups will contain min(resample_groups, min_groupsize) cells
-#  'unequal': if integer provided to resample_groups, all groups will contain maximally resample_groups cells (or less)
-#verbose: should bhSne be verbose?
 
   # do subsampling
   if (is.numeric(subsample_groups)){
     if (subsample_mode == 'equal'){
-    min_n = min(input_dat[get(channel_var) == channels[1], .(n= .N), by=get(group_var)]$n)
-    subsample_groups = min(subsample_groups, min_n)
+      min_n = min(input_dat[get(channel_var) == channels[1], .(n= .N), by=get(group_var)]$n)
+      subsample_groups = min(subsample_groups, min_n)
     }
     ids = input_dat[get(channel_var) == channels[1], .(fil = get(id_var)[sample.int(.N, min(subsample_groups, .N))]),by=get(group_var)]$fil
     
@@ -96,6 +146,8 @@ aq.calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='ch
   } else {
     ids = input_dat[, get(id_var)]
   }
+
+
   
   dt = dcast.data.table(input_dat[(get(channel_var) %in% good_channels) & get(id_var) %in% ids], formula = as.formula(paste(id_var, '~', channel_var)), value.var = value_var)
   
@@ -116,23 +168,129 @@ aq.calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='ch
   } else {
     tsne_out$groups = NaN
   }
-  return(tsne_out)
+  
   tsne_out$subsample_groups = subsample_groups
   tsne_out$subsample_mode = subsample_mode
+  return(tsne_out)
+
 }
+
+### Network plotting functions ####
+
+#' Loads a Cytoscape JSON as an igraph graph
+#' 
+#' @param  jdat a loaded Cytoscape JSON
+#' @result an igraph-graph
+#' 
+#' @example 
+#' jdat = fromJSON(file = 'xy.json')
+#' g = load_json_graph(jdat)
+#' list.edge.attributes(g)
+#' list.vertex.attributes(g)
+#' 
+#' plot.igraph(g,
+#'            layout=-cbind(V(g)$posx, V(g)$posy),
+#'            rescale=T,
+#'            edge.arrow.size=0.1,
+#'            vertex.size =7,
+#'            vertex.label.cex = 0.5)
+bb.load_json_graph = function(jdat){
+  "
+  Loads a graph with metadata from a cytoscape.js JSON file
+  "
+  edgelist = sapply(jdat$elements$edges, function(e){
+    # Loads the edge matrix f  
+    return(c(e$data$source, e$data$target))
+  })
+  # Create graph
+  g = graph_from_edgelist(t(edgelist))
+  
+  # Loop over the nodes to get metadata
+  for (v in jdat$elements$nodes){
+    
+    idx = which(V(g)$name == v$data$id)
+    
+    # Loop over the metadata entries
+    for (at in names(v$data)){
+      
+      g = set.vertex.attribute(g, at, idx, v$data[[at]])
+    }
+    
+    # set position metadata
+    g = set.vertex.attribute(g,'posx',idx, as.numeric(v$position$x))
+    g = set.vertex.attribute(g,'posy',idx, as.numeric(v$position$y))
+    
+  }
+  
+  # Loop over edges metadata
+  for (idx in 1:length(jdat$elements$edges)){
+    e = jdat$elements$edges[[idx]]
+    for (at in names(e$data)){
+      g = set.edge.attribute(g,at,idx, e$data[[at]])
+    }
+  }
+  return (g)
+}
+
+
 
 
 
 ### various small helper functions ####
 
+#' Maps a vector x to a colormap and returns the RGB values
+#'
+#' @param x values to be mapped
+#' @param xmax maximum value to be mapped
+#' @param symmetric if T the map will be symmetric from -xmax to xmax centered arround 0
+#' @param cmap a colormap, e.g. from colorRamp
+#' @param na_col what color should NA have (name or RGB)
+#' 
+#' @return returns the values mapped
+bb.map2colormap = function(x, xmax=NaN, symmetric=NA, cmap=colorRamp(c('blue','white', 'red')), na_col='cornsilk3'){
+  if (is.na(xmax)){
+    x_max = max(abs(x), na.rm = T)
+  }
+  
+  x = x/xmax
+
+  # if any value is negative, make symmetric by scaling
+  if ((!is.na(symmetric) & symmetric == T) | any(x[!is.na(x)] <0)){
+    x = (x+1)/2
+  }
+  x[x<0 ] =0
+  x[x>1] = 1
+  
+  # apply
+  c_x =cmap(x)
+  
+  # deal with NA
+  if (is.character(na_col)){
+    na_rgb_col = col2rgb(na_col)
+  } else {
+    na_rgb_col = na_col
+  }
+  
+  if (any(is.na(c_x))){
+    na_fil = which(apply(is.na(c_x),1, any))
+    
+    for (row in na_fil){
+      c_x[row,] = na_rgb_col
+    }
+  }
+  
+  rgb_x = rgb(c_x/255)
+  return(rgb_x)
+}
+
 # calculate percentiles
-aq.getPerc <- function(x){
+bb.getPerc <- function(x){
   fkt <- ecdf(x)
   return(fkt(x))
 }
 
 # calculate stats
-aq.getStats <- function(df,varName,grpVar,fkt=function(x){x},meltTab = F,bootstrapSD = F){
+bb.getStats <- function(df,varName,grpVar,fkt=function(x){x},meltTab = F,bootstrapSD = F){
   df[,tCol := fkt(get(varName))]
   tdt <- df[,list(
     min_c=min(tCol,na.rm=T),
@@ -184,11 +342,11 @@ aq.getStats <- function(df,varName,grpVar,fkt=function(x){x},meltTab = F,bootstr
 }
 
 # plot summary stats
-aq.plot_sumStats <- function(df,varName = 'value',
+bb.plot_sumStats <- function(df,varName = 'value',
                              condName = 'condition',
                              channelName = 'channel',
                              fkt=function(x){x}){
-  stats = aq.getStats(df,varName,c(condName,channelName),fkt,meltTab=T)
+  stats = bb.getStats(df,varName,c(condName,channelName),fkt,meltTab=T)
   stats = subset(stats,!stats %in% c('max_c','min_c','lower05_c','upper95_c'))
   statsCol = 'stats'
   ycol = 'transfColumn'
@@ -203,11 +361,11 @@ aq.plot_sumStats <- function(df,varName = 'value',
 }
 
 
-aq.allComb = function(cDat,idvar='xcat',varvar='ycat',valvar='val'){
+bb.allComb = function(cDat,idvar='xcat',varvar='ycat',valvar='val'){
   cDat =melt(dcast.data.table(cDat,paste(idvar,varvar,sep='~'),value.var=valvar),
              id.vars = idvar,
              variable.name = varvar,
-             value.name = valvar,) 
+             value.name = valvar) 
   return(cDat)
 }
 

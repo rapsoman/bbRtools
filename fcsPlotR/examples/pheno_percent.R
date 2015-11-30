@@ -14,8 +14,8 @@ file_prefix = paste(cluster_col,'1', sep='_') # for the naming of the output fil
 
 
 #### Script
-condDict = aq.getInfoFromFileList(list.files(fileDir),contidion_name_sep, coundition_name_position)
-dat <- aq.loadConvertMultiFCS(list.files(fileDir),fileDir,condDict)
+condDict = bb.getInfoFromFileList(list.files(fileDir),contidion_name_sep, coundition_name_position)
+dat <- bb.loadConvertMultiFCS(list.files(fileDir),fileDir,condDict)
 
 # prints all the fcs column names
 print(colnames(dat))

@@ -19,7 +19,7 @@ crap_channels = c("Time", "Event_length", "MCB102", "MCB104", "MCB105", "MCB106"
 fcs_files = list.files(fcs_folder)
 cond_dict = fcs_files
 names(cond_dict) = fcs_files
-dat = aq.loadConvertMultiFCS(fileList = fcs_files, fileDir = fcs_folder, condDict = cond_dict)
+dat = bb.loadConvertMultiFCS(fileList = fcs_files, fileDir = fcs_folder, condDict = cond_dict)
 
 # give each cell an own ID
 dat[, id := paste(1:.N, .BY), by=condition]
@@ -39,14 +39,14 @@ good_channels = unique(dat$channel)[!unique(dat$channel) %in% crap_channels]
 print(good_channels)
 
 # make a matrix with all channels used for tsne
-tsne_out_unscaled = aq.calcTSNE(dat, good_channels, value_var = 'counts_transf', 
+tsne_out_unscaled = bb.calcTSNE(dat, good_channels, value_var = 'counts_transf', 
                                 id_var = 'id', group_var='condition', scale = F, subsample_groups=F, subsample_mode='equal')
-tsne_out_scaled = aq.calcTSNE(dat, good_channels, value_var = 'counts_transf', id_var = 'id', scale = T,
+tsne_out_scaled = bb.calcTSNE(dat, good_channels, value_var = 'counts_transf', id_var = 'id', scale = T,
                                group_var='condition',  subsample_groups=F, subsample_mode='equal')
 
-tsne_out_unscaled_sub = aq.calcTSNE(dat, good_channels, value_var = 'counts_transf', 
+tsne_out_unscaled_sub = bb.calcTSNE(dat, good_channels, value_var = 'counts_transf', 
                                 id_var = 'id', group_var='condition', scale = F, subsample_groups=T, subsample_mode='equal')
-tsne_out_scaled_sub = aq.calcTSNE(dat, good_channels, value_var = 'counts_transf', id_var = 'id', scale = T,
+tsne_out_scaled_sub = bb.calcTSNE(dat, good_channels, value_var = 'counts_transf', id_var = 'id', scale = T,
                               group_var='condition',  subsample_groups=T, subsample_mode='equal')
 
 setkey(dat, id)
@@ -137,17 +137,4 @@ for (co in cond){
   dev.off()
 }
 
-library(colorspace)
-library(BR)
-cmap = colorRamp(colors = c('red','white','blue'))
 
-col_map = function(x,cmap,xmax =1, rgbout=T){
-  c = cmap(x/xmax)
-  if (rgbout){
-    return(rgb(c/255))
-  } else {
-    return(c)
-  }
-  
-}
-colorRamp(brewer.pal(10,'Spectral'))

@@ -3,9 +3,11 @@ library(data.table) # for fast data tables
 library(ggplot2) # For plotting
 library(rjson) # For reading json
 library(RColorBrewer) # For nice color palettes
-library(LSD)
+#library(LSD)
 library(colorRamps)
 library(fields)
+
+source('/mnt/imls-bod/LabCode/bbRtools/fcsPlotR/library/fcsPlotR_library.R')
 
 net_file = '/mnt/imls-bod/Daniel_Data/Macrophage network/Network_cyto.cyjs'
 data_file = '/mnt/imls-bod/Daniel_Data/Macrophage network/20151120 Signaling 1.04.csv'
@@ -15,45 +17,8 @@ out_folder = '/mnt/imls-bod/Daniel_Data/Macrophage network/'
 jdat = fromJSON(file = net_file)
 
 
-load_json_graph = function(jdat){
-  "
-  Loads a graph with metadata from a cytoscape.js JSON file
-  "
-  edgelist = sapply(jdat$elements$edges, function(e){
-    # Loads the edge matrix f  
-    return(c(e$data$source, e$data$target))
-  })
-  # Create graph
-  g = graph_from_edgelist(t(edgelist))
-  
-  # Loop over the nodes to get metadata
-  for (v in jdat$elements$nodes){
-    
-    idx = which(V(g)$name == v$data$id)
-    
-    # Loop over the metadata entries
-    for (at in names(v$data)){
-      
-      g = set.vertex.attribute(g, at, idx, v$data[[at]])
-    }
-    
-    # set position metadata
-    g = set.vertex.attribute(g,'posx',idx, as.numeric(v$position$x))
-    g = set.vertex.attribute(g,'posy',idx, as.numeric(v$position$y))
-    
-  }
-  
-  # Loop over edges metadata
-  for (idx in 1:length(jdat$elements$edges)){
-    e = jdat$elements$edges[[idx]]
-    for (at in names(e$data)){
-      g = set.edge.attribute(g,at,idx, e$data[[at]])
-    }
-  }
-  return (g)
-}
 
-g = load_json_graph(jdat)
+g = bb.load_json_graph(jdat)
 
 
 list.edge.attributes(g)
@@ -179,39 +144,7 @@ condition_names = map_dat[, unique(condition[order(stimulation, timepoint)])]
 
 
 # color mapping
-vertex_color_map = function(x, xmax=NaN, symmetric=NA, cmap=colorRamp(c('blue','white', 'red')), na_col='cornsilk3'){
-  if (is.na(xmax)){
-    x_max = max(abs(x), na.rm = T)
-  }
-  
-  x = x/xmax
-  
-  # if any value is negative, make symmetric by scaling
-  if ((!is.na(symmetric) & symmetric == T) | any(x[!is.na(x)] <0)){
-    x = (x+1)/2
-  }
-  
-  # apply
-  c_x =cmap(x)
-  
-  # deal with NA
-  if (is.character(na_col)){
-    na_rgb_col = col2rgb(na_col)
-  } else {
-    na_rgb_col = na_col
-  }
-  
-  if (any(is.na(c_x))){
-    na_fil = which(apply(is.na(c_x),1, any))
-    
-    for (row in na_fil){
-      c_x[row,] = na_rgb_col
-    }
-  }
-  
-  rgb_x = rgb(c_x/255)
-  return(rgb_x)
-}
+
 
 ##### 
 # Settings for plotting
@@ -243,7 +176,6 @@ for (stim in map_dat[, unique(stimulation)]){
     #### Do the plotting #### 
     cur_condition = paste(stim, tp, sep='_')
     
-    
     # Add the current measurement to all nodes. A "." may be used to call keys instead of "list"
     for (idx in 1:length(V(g))){
       cur_v = V(g)[[idx]]
@@ -264,10 +196,10 @@ for (stim in map_dat[, unique(stimulation)]){
                     vertex.label.cex = 0.5,
                     edge.color = sapply(E(g)$interaction, arrow_col_map),
                     edge.lty=sapply(E(g)$interaction, arrow_lty_map),
-                    vertex.color =vertex_color_map(V(g)$value, symmetric=T, xmax=xmax, cmap=cmap))
+                    vertex.color = bb.map2colormap(V(g)$value, symmetric=T, xmax=xmax, cmap=cmap))
     print(p)
     title(cur_condition)
-    image.plot( legend.only=TRUE, zlim=c(-xmax,xmax), col=vertex_color_map(1:200, xmax=200, cmap=cmap), legend.shrink = 0.2) 
+    image.plot( legend.only=TRUE, zlim=c(-xmax,xmax), col=map2colormap(1:200, xmax=200, cmap=cmap), legend.shrink = 0.2) 
     
   }}
 dev.off()

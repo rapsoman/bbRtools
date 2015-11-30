@@ -40,8 +40,8 @@ idCol = c('Time','Event_length','barcode','condition')
 dat= data.table()
 
 for (fileDir in fileDirs){
-  condDict = aq.getInfoFromFileList(list.files(fileDir),'_',c(grpVarPos,orderVarPos))
-  tdat <- aq.loadConvertMultiFCS(list.files(fileDir),fileDir,condDict,subSample=subSample)
+  condDict = bb.getInfoFromFileList(list.files(fileDir),'_',c(grpVarPos,orderVarPos))
+  tdat <- bb.loadConvertMultiFCS(list.files(fileDir),fileDir,condDict,subSample=subSample)
   
   # remove unecessary columns
   tdat = tdat[,-grep("Beads|BC.|Iridium193|Iridium191|bead|MCB|File\ Number|DNA|Event\ \\#", colnames(tdat)), with=FALSE]
@@ -57,7 +57,7 @@ for (fileDir in fileDirs){
 # censor small values
 dat[value < 1,value:=1]
 
-p = aq.plot_sumStats_grouped(dat,varName = 'value',
+p = bb.plot_sumStats_grouped(dat,varName = 'value',
                      condName = 'condition',
                      channelName = 'channel',
                      fkt=fkt,
