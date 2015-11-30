@@ -86,7 +86,7 @@ cond = c('tsne_out_unscaled', 'tsne_out_scaled', 'tsne_out_scaled_sub','tsne_out
 
 for (co in cond){
   
-  page = pdf(file.path(fcs_folder,paste('bhSNE',co,'.pdf',sep='_')),width = 10, height = 7)
+  page = pdf(file.path(fcs_folder,paste('bhSNE',co,'2.pdf',sep='_')),width = 10, height = 7)
   
   #print(paste(tsne_plot$channels, collapse='\n'))
   
@@ -101,17 +101,33 @@ for (co in cond){
   
   for (chan in unique(dat$channel)){
     plot_dat = subset(dat, channel == chan)[tsne$Y]
-    breaks = c( 0,
-               as.numeric(quantile(plot_dat$counts,0.25)),
-               as.numeric(quantile(plot_dat$counts,0.5)),
-               as.numeric(quantile(plot_dat$counts,0.75)),
-               max(censor_dat(plot_dat$counts)))/(max(censor_dat(plot_dat$counts)))
+    ibreaks = c( quantile(plot_dat$counts,0),
+               quantile(plot_dat$counts,0.25),
+               quantile(plot_dat$counts,0.5),
+               quantile(plot_dat$counts,0.75),
+               max(censor_dat(plot_dat$counts)))
+    breaks = (ibreaks-min(ibreaks))/max(ibreaks)
+    df_b = data.frame(breaks)
+    ibreaks = sapply(ibreaks,as.integer)
+    df_b$lab= factor(x=1:length(breaks),level=1:length(breaks),
+                     labels = c(paste(as.character(ibreaks[1]),'(= min)'),
+                                paste(as.character(ibreaks[2]),'(= 25% quantile)'),
+                                paste(as.character(ibreaks[3]),'(= median'),
+                                paste(as.character(ibreaks[4]),'(= 75% quantile)'),
+                                paste(as.character(ibreaks[5]),'(= max)')))
+    df_b$x= 0
+    df_b$y = 0
+    cols =c('darkorchid4','cornflowerblue','grey','yellow','red')
     p = ggplot(plot_dat, aes(x=bh_1, y=bh_2))+
       geom_point(alpha=1, size=0.8,aes( color=censor_dat(counts)))+
       #stat_density2d(group=1, color='black')+
-      scale_colour_gradientn(colours=c('violet','lightblue','grey','yellow','red'),
+      scale_colour_gradientn(colours=cols,
                              values =breaks)+
-#      scale_colour_gradient2(midpoint = median(censor_dat(plot_dat$counts)),low = 'blue',high = 'red', mid='grey')+
+      geom_point(data=df_b, aes_string(x='x',y='y',fill='lab'),
+                 color='grey',alpha=0, shape=21)+
+      scale_fill_manual(values=cols)+
+      guides(fill=guide_legend(title = 'Color meaning',override.aes=list(alpha=1,size=5)))+
+
       ggtitle(chan)
     print(p)
   }
@@ -120,3 +136,18 @@ for (co in cond){
   
   dev.off()
 }
+
+library(colorspace)
+library(BR)
+cmap = colorRamp(colors = c('red','white','blue'))
+
+col_map = function(x,cmap,xmax =1, rgbout=T){
+  c = cmap(x/xmax)
+  if (rgbout){
+    return(rgb(c/255))
+  } else {
+    return(c)
+  }
+  
+}
+colorRamp(brewer.pal(10,'Spectral'))
