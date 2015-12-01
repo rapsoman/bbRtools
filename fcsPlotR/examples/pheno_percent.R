@@ -1,12 +1,12 @@
 
 ## Load the library
-source('/home/vitoz/Git/vz-bod/For Stephan/fcsPlotR/fcsPlotR_library.R')
+source('/mnt/imls-bod/LabCode/bbRtools/fcsPlotR/library/fcsPlotR_library.R')
 
 ## Set settings
 
 fileDir = '/home/vitoz/imls-bod/for Stephane/'
 plotDir = '/home/vitoz/imls-bod/for Stephane/output/'
-cluster_col="PhenoGraph K30 AEER24057"
+cluster_col="PhenoGraph.K30.AEER24057"
 coundition_name_position = c(1,2,3) # used to construct the condition name from the filename
 contidion_name_sep ='_'
 
