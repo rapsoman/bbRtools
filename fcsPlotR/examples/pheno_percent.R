@@ -1,6 +1,6 @@
 
 ## Load the library
-source('/home/vitoz/Git/vz-bod/For Stephan/fcsPlotR/fcsPlotR_library.R')
+source('/mnt/imls-bod/LabCode/bbRtools/fcsPlotR/library/fcsPlotR_library.R')
 
 ## Set settings
 
