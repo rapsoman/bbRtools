@@ -1,25 +1,26 @@
-source('fcsPlotR/library/fcsPlotR_library.R')
+source('/mnt/imls-bod/LabCode/bbRtools/fcsPlotR/library/fcsPlotR_library.R')
 library('data.table')
 library('Rtsne')
+library('destiny')
 
 #### Plot fcs files in a folder as a bhSNE ####
-
-# initialize
-# 
+# Copy this script in your folder
+#
+#
 
 # input files
-fcs_folder = '/mnt/imls-bod/for Stephane/FCS test/'
+fcs_folder = '/mnt/imls-bod/LabCode/bbRtools/ExampleData/FCStest/'
 
 # define exlcluded crap channels
 crap_channels = c("Time", "Event_length", "MCB102", "MCB104", "MCB105", "MCB106", "MCB108","MCB110","MCB113","MCB115" ,"Beads140" ,
                   "DNA193",    "DNA191" ,   "Live194",      "Live195" ,     "beadDist",     "barcode"
 )
 
+
+########## Start script ###
 # load data
 fcs_files = list.files(fcs_folder)
-cond_dict = fcs_files
-names(cond_dict) = fcs_files
-dat = bb.loadConvertMultiFCS(fileList = fcs_files, fileDir = fcs_folder, condDict = cond_dict)
+dat = bb.loadConvertMultiFCS(fileDir = fcs_folder)
 
 # give each cell an own ID
 dat[, id := paste(1:.N, .BY), by=condition]

@@ -16,12 +16,17 @@ library(tools)
 # Otherwise chaning the heatmap plotting could also be a good idea
 #
 # The microarray used for had multiple probes per mRNA.
+#
+# The output will be 4 heatmaps with row normalized and unnormalized values as well as clustered or sorted cellines
 #################
 ##### setup ####
-out_dir = '/home/vitoz/Git/vz-bod/For Stef/'
 
+# indicate the output folder
+out_dir = '/mnt/imls-bod/LabCode/bbRtools/ExampleData/ExampleOutput'
+
+# Indicate the location of the input file
 # this input file needs to be a comma seperated text file with specific columns
-input_file = '/home/vitoz/Git/vz-bod/For Stef/150906_proteins.csv'
+input_file = '/mnt/imls-bod/LabCode/bbRtools/ExampleData/150906_mRNAexpression_proteins.csv'
 
 
 # Look up the correct cell line name here: 

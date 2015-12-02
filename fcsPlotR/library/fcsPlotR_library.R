@@ -52,12 +52,12 @@ bb.flowFrame2dt <-function(datFCS){
 #' @return a dataframe with all combined FCS files
 bb.loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN){
   if (is.na(fileList)){
-    fileList = list.files(fileList, pattern='*.fcs')
+    fileList = list.files(fileDir, pattern='*.fcs')
   }
   dat = data.table()
   for(file in fileList){
     if(file_ext(file) =='fcs'){
-      if (is.na(condDict)){
+      if (!is.na(condDict)){
         cond = condDict[[file]]
       } else {
         cond = file
@@ -247,9 +247,9 @@ bb.load_json_graph = function(jdat){
 #' @param na_col what color should NA have (name or RGB)
 #' 
 #' @return returns the values mapped
-bb.map2colormap = function(x, xmax=NaN, symmetric=NA, cmap=colorRamp(c('blue','white', 'red')), na_col='cornsilk3'){
+bb.map2colormap = function(x, xmax=NA, symmetric=NA, cmap=colorRamp(c('blue','white', 'red')), na_col='cornsilk3'){
   if (is.na(xmax)){
-    x_max = max(abs(x), na.rm = T)
+    xmax = max(abs(x), na.rm = T)
   }
   
   x = x/xmax
@@ -287,6 +287,13 @@ bb.map2colormap = function(x, xmax=NaN, symmetric=NA, cmap=colorRamp(c('blue','w
 bb.getPerc <- function(x){
   fkt <- ecdf(x)
   return(fkt(x))
+}
+
+bb.censor_dat = function(x, quant = 0.999){
+  q = quantile(x,quant)
+  x[x>q] = q
+  return(x)
+  
 }
 
 # calculate stats
