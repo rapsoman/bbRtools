@@ -33,18 +33,17 @@ dat = melt.data.table(dat, id.vars=c('condition','id'), variable.name='channel',
 ### calculae transformed counts ####
 dat[ , counts_transf := asinh(counts/5)]
 
-
+setkey(dat, id)
 # make a list
 good_channels = unique(dat$channel)[!unique(dat$channel) %in% crap_channels]
 print('Channels used:')
 print(good_channels)
 
-plotmat = dcast.data.table(subset(dat, channel %in% good_channels), formula = id ~ channel, value.var = 'counts_transf')
 ###### Run diffusion maps #####
 
 
-
-plotmat = plotmat[ id %in% sample(id, 25000),]
+plotmat = dcast.data.table(subset(dat, channel %in% good_channels), formula = id ~ channel, value.var = 'counts_transf')
+#plotmat = plotmat[ id %in% sample(id, 25000),]
 
 difout <- DiffusionMap(scale(plotmat[, -'id', with=F]), verbose = T)
 
@@ -56,8 +55,12 @@ difdat[, id:= plotmat$id]
 setkey(difdat, id)
 
 
-                                                                                                                                                                                          ggplot(subset(dat[difdat], channel == "Slamf7"), aes(x=PC1, y = PC2, col=condition))+
-  geom_point(size=4, alpha=1, shape='o')+
+
+
+
+
+ggplot(subset(dat[difdat], channel == "Slamf7"), aes(x=DC1, y = DC2, col=condition))+ 
+  geom_point()+
   scale_colour_brewer(palette="Paired")
 
 ggplot(subset(dat[difdat], channel == "Slamf7"), aes(x=DC1, y = DC2, col=bb.censor_dat(counts, 0.99)))+
@@ -65,11 +68,11 @@ ggplot(subset(dat[difdat], channel == "Slamf7"), aes(x=DC1, y = DC2, col=bb.cens
   scale_colour_gradientn(colours=rev(brewer.pal(11,'Spectral')))
 
 # plot as 3d
-pdat = subset(dat[difdat], channel == "Slamf7")
+pdat = subset(dat[difdat], channel == "Event_length")
 
 # plot conditions
 col = rainbow(5)[as.factor(pdat$condition)]
-scatterplot3js(pdat$PC1,pdat$DC1, pdat$DC2, size=0.2, color = col , labels =pdat$condition,stroke=NA )
+scatterplot3js(pdat$DC1,pdat$DC2, pdat$DC3, size=0.2, color = col , labels =pdat$condition,stroke=NA )
 
 # plot counts
 col = bb.map2colormap(bb.censor_dat(pdat$counts, 0.99), cmap=colorRamp(rev(brewer.pal(11,'Spectral'))))

@@ -53,23 +53,34 @@ setkey(pca, id)
 setkey(dat, id)
 
 
-ggplot(subset(dat[pca], channel == "Slamf7"), aes(x=PC1, y = PC2, col=condition))+
+ggplot(subset(dat[pca], channel == "Event_length"), aes(x=PC1, y = PC2, col=condition))+
   geom_point(size=4, alpha=1, shape='o')+
   scale_colour_brewer(palette="Paired")
 
-ggplot(subset(dat[pca], channel == "Slamf7"), aes(x=PC1, y = PC2, col=bb.censor_dat(counts, 0.99)))+
-  geom_point()+
+ggplot(subset(dat[pca], channel == "Event_length"), aes(x=PC1, y = PC2, col=bb.censor_dat(counts, 0.99)))+
+  geom_point(alpha=0.2, size=2)+
   scale_colour_gradientn(colours=rev(brewer.pal(11,'Spectral')))
 
 # plot as 3d
-pdat = subset(dat[pca], channel == "Slamf7")
+pdat = subset(dat[pca], channel == "Event_length")
 
 # plot conditions
 col = rainbow(5)[as.factor(pdat$condition)]
-scatterplot3js(pdat$PC1,pdat$PC2, pdat$PC3, size=0.2, color = col , labels =pdat$condition,stroke=NA )
+scatterplot3js(pdat$PC1,pdat$PC3, pdat$PC4, size=0.2, color = col , labels =pdat$condition,stroke=NA )
 
 # plot counts
 col = bb.map2colormap(bb.censor_dat(pdat$counts, 0.99), cmap=colorRamp(rev(brewer.pal(11,'Spectral'))))
 scatterplot3js(pdat$PC1,pdat$PC2, pdat$PC3, size=0.2, color = col , labels =pdat$condition,stroke=NA )
 
+cor(pdat$PC2, pdat$counts)
+
+### load the pca loadings
+pca_loadings = as.data.table(pcadat$rotation)
+pca_loadings$channel = rownames(pcadat$rotation)
+pca_loadings = melt.data.table(pca_loadings, id.vars = 'channel')
+
+pca_loadings[, pca_dim := as.numeric(gsub("[^0-9]", "",variable))]
+ggplot(pca_loadings[ pca_dim < 6], aes(x=channel, y=value))+
+  facet_grid(variable~.)+
+  geom_bar(stat='identity')
 

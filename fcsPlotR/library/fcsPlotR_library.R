@@ -129,6 +129,7 @@ bb.calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='ch
                         id_var='id', group_var ='condition', scale=F,
                         subsample_groups=F, subsample_mode='equal',
                         verbose=T,
+                        dims=2,
                         ...){
 
   # do subsampling
@@ -158,8 +159,11 @@ bb.calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='ch
     tsnedat = dt[, channels, with=F]
   }
   
-  tsne_out <- Rtsne(tsnedat, verbose=verbose,...)
-  tsne_out$Y = data.table(bh_1=tsne_out$Y[,1], bh_2=tsne_out$Y[,2], id = dt[, get(id_var)])
+  tsne_out <- Rtsne(tsnedat, verbose=verbose,dims=dims,...)
+  tsne_out$Y = data.table(tsne_out$Y)
+  setnames(tsne_out$Y, names(tsne_out$Y), paste("bh",names(tsne_out$Y),sep='_'))
+  tsne_out$Y$id = dt[, get(id_var)]
+  setnames(tsne_out$Y, 'id', id_var)
   setkeyv(tsne_out$Y, id_var)
   tsne_out$channels = channels
   tsne_out$scale= F
