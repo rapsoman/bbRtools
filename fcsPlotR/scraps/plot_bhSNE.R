@@ -9,7 +9,7 @@ library(plotly)
 #
 #
 
-# input files
+# Which folder to look at
 fcs_folder = '/mnt/imls-bod/LabCode/bbRtools/ExampleData/FCStest/'
 
 # define exlcluded crap channels
@@ -19,12 +19,11 @@ crap_channels = c("Time", "Event_length", "MCB102", "MCB104", "MCB105", "MCB106"
 
 
 ########## Start script ###
-# load data
-fcs_files = list.files(fcs_folder)
+# load data into a data table
 dat = bb.loadConvertMultiFCS(fileDir = fcs_folder)
 
 # give each cell an own ID
-dat[, id := paste(1:.N, .BY), by=condition]
+dat[ , id := paste(1:.N, .BY), by=condition]
 setkey(dat, id)
 # 'melt' data: make a column 'channel' with all the channels and a column 'counts' with all the counts
 dat = melt.data.table(dat, id.vars=c('condition','id'), variable.name='channel', value.name = 'counts' , variable.factor = FALSE)
@@ -32,14 +31,11 @@ dat = melt.data.table(dat, id.vars=c('condition','id'), variable.name='channel',
 
 ### calculae transformed counts ####
 dat[ , counts_transf := asinh(counts/5)]
-
+setkey(dat, id)
 ###### Run Tsne #####
-
-
 # make a list
 good_channels = unique(dat$channel)[!unique(dat$channel) %in% crap_channels]
 print(good_channels)
-setkey(dat, id)
 
 # make a matrix with all channels used for tsne
 tsne_out_unscaled = bb.calcTSNE(dat, good_channels, value_var = 'counts_transf', 
@@ -55,7 +51,10 @@ tsne_out_unscaled_sub = bb.calcTSNE(dat, good_channels, value_var = 'counts_tran
 tsne_out_scaled_sub = bb.calcTSNE(dat, good_channels, value_var = 'counts_transf', id_var = 'id', scale = T,
                               group_var='condition',  subsample_groups=T, subsample_mode='equal')
 
+tsne_out_scaled_sub = bb.calcTSNE(dat, good_channels, value_var = 'counts_transf', id_var = 'id', scale = T,
+                                  group_var='condition',  subsample_groups=1000, subsample_mode='equal')
 
+# plot the data
 p = ggplot(subset(dat, channel == "Event_length")[tsne_out_scaled$Y], aes(x=bh_V1, y=bh_V2, color=condition))+
   geom_point(alpha=0.2, size=2)
 p
@@ -75,7 +74,7 @@ p = ggplot(subset(dat, channel == "Event_length")[tsne_out_unscaled_sub$Y], aes(
 p
 
 p = ggplot(subset(dat, channel == "Event_length")[tsne_out_scaled_sub$Y], aes(x=bh_V1, y=bh_V2, color=condition))+
-  geom_point(alpha=0.3, size=2)
+  geom_point(alpha=1, size=2)
 p
 
 
@@ -89,8 +88,13 @@ marker = good_channels[1]
 
 
 
-marker = 'beadDist'
-p = ggplot(subset(dat, channel == marker)[tsne_out_scaled_3d$Y], aes(x=bh_V1, y=bh_V2, color=bb.censor_dat(counts)))+
+marker = 'Slamf7'
+p = ggplot(subset(dat, channel == marker)[tsne_out_scaled$Y], aes(x=bh_V1, y=bh_V2, color=counts))+
+  geom_point(alpha=1, size=1)+
+  ggtitle(marker)
+p
+
+p = ggplot(subset(dat, channel == marker)[tsne_out_scaled$Y], aes(x=bh_V1, y=bh_V2, color=bb.censor_dat(counts, 0.99)))+
   geom_point(alpha=1, size=1)+
   ggtitle(marker)
 p

@@ -50,7 +50,7 @@ bb.flowFrame2dt <-function(datFCS){
 #' @param condDict a named vector which maps Filenames to condition
 #' 
 #' @return a dataframe with all combined FCS files
-bb.loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN){
+bb.loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN,subSample = NA){
   if (is.na(fileList)){
     fileList = list.files(fileDir, pattern='*.fcs')
   }
@@ -65,6 +65,13 @@ bb.loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN){
       
       #load and convert to dt
       tmpDT <- bb.flowFrame2dt(bb.loadFCS(file.path(fileDir,file)))
+      
+      if (!is.na(subSample) && is.numeric(subSample)){
+        if (subSample < nrow(tmpDT)){
+          tmpDT = tmpDT[sample(1:nrow(tmpDT),subSample,replace = F), ]
+        } else {stop('Less cells than subSample size!')}
+      }      
+      
       #combine dt
       dat = rbindlist(list(dat,tmpDT[,'condition':=cond]), fill=T)
     }
@@ -378,6 +385,23 @@ bb.allComb = function(cDat,idvar='xcat',varvar='ycat',valvar='val'){
              variable.name = varvar,
              value.name = valvar) 
   return(cDat)
+}
+
+bb.equalSamp  = function(dat,col='condition'){
+  minS = min(dat[, .N,by = get(col)]$N)
+  
+  dat[,isTaken := sample(c(rep(F,.N-minS),rep(T,minS)),.N),by=get(col)]
+  dat = dat[isTaken == T]
+  dat[,isTaken :=NULL]
+  return(dat)
+}
+
+
+
+# calculate percentiles
+aq.getPerc <- function(x){
+  fkt <- ecdf(x)
+  return(fkt(x))
 }
 
 

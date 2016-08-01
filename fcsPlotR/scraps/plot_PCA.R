@@ -53,16 +53,16 @@ setkey(pca, id)
 setkey(dat, id)
 
 
-ggplot(subset(dat[pca], channel == "Event_length"), aes(x=PC1, y = PC2, col=condition))+
-  geom_point(size=4, alpha=1, shape='o')+
+ggplot(subset(dat, channel == "Event_length")[pca], aes(x=PC1, y = PC2, col=condition))+
+  geom_point(size=4, alpha=1)+
   scale_colour_brewer(palette="Paired")
 
 ggplot(subset(dat[pca], channel == "Event_length"), aes(x=PC1, y = PC2, col=bb.censor_dat(counts, 0.99)))+
-  geom_point(alpha=0.2, size=2)+
+  geom_point(alpha=0.8, size=2)+
   scale_colour_gradientn(colours=rev(brewer.pal(11,'Spectral')))
 
 # plot as 3d
-pdat = subset(dat[pca], channel == "Event_length")
+pdat = subset(dat, channel == "Event_length")[pca]
 
 # plot conditions
 col = rainbow(5)[as.factor(pdat$condition)]
@@ -82,5 +82,6 @@ pca_loadings = melt.data.table(pca_loadings, id.vars = 'channel')
 pca_loadings[, pca_dim := as.numeric(gsub("[^0-9]", "",variable))]
 ggplot(pca_loadings[ pca_dim < 6], aes(x=channel, y=value))+
   facet_grid(variable~.)+
-  geom_bar(stat='identity')
+  geom_bar(stat='identity')+
+  theme(axis.text.x=element_text(angle=-90))
 

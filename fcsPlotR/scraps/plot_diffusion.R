@@ -43,9 +43,9 @@ print(good_channels)
 
 
 plotmat = dcast.data.table(subset(dat, channel %in% good_channels), formula = id ~ channel, value.var = 'counts_transf')
-#plotmat = plotmat[ id %in% sample(id, 25000),]
+plotmat = plotmat[ id %in% sample(id, 25000),]
 
-difout <- DiffusionMap(scale(plotmat[, -'id', with=F]), verbose = T)
+difout <- DiffusionMap(plotmat[, -'id', with=F], verbose = T)
 
 difdat = as.data.table(as.data.frame(difout))
 # clean out the unneeded data
