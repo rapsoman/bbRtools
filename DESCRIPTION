@@ -1,7 +1,7 @@
 Package: bbRtools
 Type: Package
-Title: A helper package to make cyTOF related operations
-Version: 0.1.0
+Title: A helper package to for cyTOF R scripts
+Version: 0.2.0
 Authors@R: person("Vito", "Zanotelli", email = "vito.zanotelli@gmail.com", role = c("aut", "cre"))
 Description: A package developped in the Bodenmiller lab to help
     new users to plot their data quickly with R.
@@ -10,9 +10,10 @@ LazyData: TRUE
 Imports:
     data.table,
     ggplot2,
-    reshape2,
     tools,
     flowCore,
     plyr,
-    boot
-RoxygenNote: 5.0.1
+    boot,
+    Rtsne,
+    igraph
+RoxygenNote: 6.0.1

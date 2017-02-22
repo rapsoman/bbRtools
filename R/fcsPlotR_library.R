@@ -16,10 +16,6 @@
 #'
 #' @param filePath path to the FCS file
 #' @return A flowframe object
-#' @examples
-#' \dontrun{
-#' read.FCS('/test/testfcs.fcs')
-#' }
 #' @export
 loadFCS <-function(filePath, ...){
   # a wrapper to the standard read.FCS, optimized for cyTOF data
@@ -31,10 +27,6 @@ loadFCS <-function(filePath, ...){
 #'
 #' @param datFCS A flowframe e.g. from read.FCS or loadFCS
 #' @return A data.table with row=cell, column=Channel
-#' @examples
-#' \dontrun{
-#' read.FCS('/test/testfcs.fcs')
-#' }
 #' @import data.table
 flowFrame2dt <-function(datFCS){
   # converts a flow frame from read.FCS to a data table
@@ -143,8 +135,8 @@ getInfoFromFileList <- function(fileList,sep='_',strPos=2,censorStr='.fcs'){
 #'  'equal': if integer provided to resample_groups all groups will contain min(resample_groups, min_groupsize) cells
 #'  'unequal': if integer provided to resample_groups, all groups will contain maximally resample_groups cells (or less)
 #'  'fraction': subsamples a fraction of the cells to get the total amount of cells indicated in subsample_groups
-#' @param verbose: should bhSne be verbose?
-#'
+#' @param verbose should bhSne be verbose?
+#' @param dimsd number of dimensions
 #' @return tsne object
 #' @export
 #' @import data.table
@@ -158,25 +150,25 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
   # do subsampling
   if (is.numeric(subsample_groups)){
     if (subsample_mode == 'equal'){
-      min_n = min(input_dat[get(channel_var) == channels[1], .(n= .N), by=get(group_var)]$n)
+      min_n = min(input_dat[get(channel_var) == channels[1], list(n= .N), by=get(group_var)]$n)
       subsample_groups = min(subsample_groups, min_n)
-      ids = input_dat[get(channel_var) == channels[1], .(fil = get(id_var)[sample.int(.N, min(subsample_groups, .N))]),by=get(group_var)]$fil
+      ids = input_dat[get(channel_var) == channels[1], list(fil = get(id_var)[sample.int(.N, min(subsample_groups, .N))]),by=get(group_var)]$fil
     } else if (subsample_mode == 'unequal'){
-      ids = input_dat[get(channel_var) == channels[1], .(fil = get(id_var)[sample.int(.N, min(subsample_groups, .N))]),by=get(group_var)]$fil
+      ids = input_dat[get(channel_var) == channels[1], list(fil = get(id_var)[sample.int(.N, min(subsample_groups, .N))]),by=get(group_var)]$fil
     } else if (subsample_mode == 'fraction'){
       frac_n= input_dat[!duplicated(get(id_var)), subsample_groups/.N]
       if (frac_n > 1){
         warning('no subsampling required as less than requested cells available')
         frac_n = 1
       }
-      ids = input_dat[!duplicated(get(id_var)), .(id = sample(get(id_var), ceiling(.N*frac_n))), by = get(group_var)]$id
+      ids = input_dat[!duplicated(get(id_var)), list(id = sample(get(id_var), ceiling(.N*frac_n))), by = get(group_var)]$id
     } else {
-      error('subsample_mode not a valid option!')
+      stop('subsample_mode not a valid option!')
     }
     
   } else if (subsample_groups){
-    min_n = min(input_dat[get(channel_var) == channels[1],.(n= .N), by=get(group_var)]$n)
-    ids = input_dat[get(channel_var) == channels[1], .(fil = get(id_var)[sample.int(.N, min_n)]),by=get(group_var)]$fil
+  min_n = min(input_dat[get(channel_var) == channels[1],list(n= .N), by=get(group_var)]$n)
+    ids = input_dat[get(channel_var) == channels[1], list(fil = get(id_var)[sample.int(.N, min_n)]),by=get(group_var)]$fil
     
   } else {
     ids = input_dat[!duplicated(get(id_var)), get(id_var)]
@@ -184,7 +176,7 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
   
   
   
-  dt = data.table::dcast(input_dat[(get(channel_var) %in% channels) & get(id_var) %in% ids], formula = as.formula(paste(id_var, '~', channel_var)), value.var = value_var)
+  dt = data.table::dcast(input_dat[(get(channel_var) %in% channels) & get(id_var) %in% ids], formula = stats::as.formula(paste(id_var, '~', channel_var)), value.var = value_var)
   
   if (scale){
     tsnedat = scale(dt[, channels, with=F])
@@ -221,6 +213,7 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
 #' @return an igraph-graph
 #'
 #' @examples
+#' 
 #' \dontrun{
 #' jdat = fromJSON(file = 'xy.json')
 #' g = load_json_graph(jdat)
@@ -235,6 +228,7 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
 #'            vertex.label.cex = 0.5)
 #'}
 #' @export
+#' @importFrom igraph graph_from_edgelist set.vertex.attribute set.edge.attribute V
 load_json_graph = function(jdat){
   "
   Loads a graph with metadata from a cytoscape.js JSON file
@@ -325,22 +319,43 @@ map2colormap = function(x, xmax=NA, symmetric=NA, cmap=colorRamp(c('blue','white
   return(rgb_x)
 }
 
-# calculate percentiles
+#' calculate percentiles
+#' For each value in x  calculate which percentile it is 
+#'
+#' @param x values to be mapped
+#'
+#' @return returns the percentile of each value of x
 #' @export
 getPerc <- function(x){
   fkt <- ecdf(x)
   return(fkt(x))
 }
 
+#' censor dat
+#' remove the outliers on the upper side by capping the values at the provided quantile
+#'
+#' @param x values to censor
+#' @param quant quantile to censor by
+#' @param symmetric censor on both side. The quantile is then seen as the inner quantile.
+#'
+#' @return returns the percentile of each value of x
 #' @export
-censor_dat = function(x, quant = 0.999){
-  q = quantile(x,quant)
+censor_dat = function(x, quant = 0.999, symmetric=F){
+  if (symmetric){
+    lower_quant = (1-quant)/2
+    quant = quant+lower_quant
+  }
+  q = stats::quantile(x,quant)
   x[x>q] = q
-  return(x)
   
+  if(symmetric){
+    q = stats::quantile(x, lower_quant)
+    x[x < lower_quant] = lower_quant
+  }
+  return(x)
 }
 
-# calculate stats
+#' calculate stats
 #' @export
 #' @import data.table
 getStats <- function(df,varName,grpVar,fkt=function(x){x},meltTab = F,bootstrapSD = F){
@@ -394,7 +409,7 @@ getStats <- function(df,varName,grpVar,fkt=function(x){x},meltTab = F,bootstrapS
   return(tdt)
 }
 
-# plot summary stats
+#' plot summary stats
 #' @export
 #' @import ggplot2
 plot_sumStats <- function(df,varName = 'value',
@@ -436,12 +451,145 @@ equalSamp  = function(dat,col='condition'){
 }
 
 
-
-# calculate percentiles
-#' @export
-aq.getPerc <- function(x){
-  fkt <- ecdf(x)
-  return(fkt(x))
+#' Calculate a correlation matrix from a data table
+#' @export get_cormat
+#' @import data.table
+get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
+  #' @param data: a data table
+  #' @param xcol: the column name to be taken as x column
+  #' @param ycol: the column name to be taken as y column
+  #' @param valuecol: the column name to be taken as valuecol
+  #' @param method: pearson or spearman, type argumetn from 'rcorr'
+  #' @param pval: return p values for the correlations?
+  
+  cormat = dcast.data.table(data, paste(xcol, ycol,sep='~'), value.var = valuecol) %>%
+    dplyr::select(-matches(xcol)) %>%
+    as.matrix() %>%
+    rcorr(type=method)
+  if (pval == F){
+    cormat = cormat$r
+  }
+  return(cormat)
 }
 
+#'  Run flowsom on a melted data table
+#' @export do_flowsom
+#' @import data.table
+#' @import flowCore
+#' @import ConsensusClusterPlus
+#' @import FlowSOM
+do_flowsom <- function(data, channels, valuevar= 'counts_transf', channelvar='channel', idvar='id', k=20, seed=FALSE, subsample=FALSE){
+  #' @param data a data frame in the long format
+  #' @param channels a list of channel names to use
+  #' @param valuevar the column to take as value variable
+  #' @param channelvar the column to take as channel variable
+  #' @param idvar the column to toake as id variable
+  #' @param k the number of clusters to use for metaclustering
+  #' @param seed the random seed - if provided
+  #' @param subsample number of cells to use for subsampling - if provided
+  #' @return at table with a column cluster and a column idvar
+  
+  
+  pheno_dat = data.table::dcast.data.table(data[get(channelvar) %in% channels, ],paste(idvar, channelvar,sep='~'),value.var = valuevar)
+  all_ids = pheno_dat[, get(idvar)]
+  
+  if (subsample == FALSE){
+    subsample=1
+  } 
+  
+  sampids = pheno_dat[, sample(get(idvar), floor(.N*subsample),replace = F)]
+  pheno_dat_samp = pheno_dat[get(idvar) %in% sampids, ]
+  ids = pheno_dat_samp[, get(idvar)]
+  pheno_dat_samp[, (idvar):=NULL]
+  set.seed(seed)
+  
+  data_FlowSOM <- flowCore::flowFrame(as.matrix(pheno_dat_samp))
+  
+  
+  ###################
+  ### RUN FLOWSOM ###
+  ###################
+  
+  # set seed for reproducibility
+  
+  if (seed) set.seed(seed)
+  
+  # run FlowSOM (initial steps prior to meta-clustering)
+  
+  out <- FlowSOM::ReadInput(data_FlowSOM, transform = FALSE, scale = FALSE)
+  out <- FlowSOM::BuildSOM(out)
+  out <- FlowSOM::BuildMST(out)
+  
+  # extract cluster labels (pre meta-clustering) from output object
+  
+  labels_pre <- out$map$mapping[, 1]
+  
+  
+  # run meta-clustering
+  
+  # note: In the current version of FlowSOM, the meta-clustering function 
+  # FlowSOM::metaClustering_consensus() does not pass along the seed argument 
+  # correctly, so results are not reproducible. We use the internal function 
+  # ConsensusClusterPlus::ConsensusClusterPlus() to get around this. However, this
+  # will be fixed in the next update of FlowSOM (version 1.5); then the following 
+  # (simpler) code can be used instead:
 
+  if (seed) {
+  out <- ConsensusClusterPlus::ConsensusClusterPlus(t(out$map$codes), maxK = k, seed = seed,writeTable = F,plot = 'pngBMP')
+  out <- out[[k]]$consensusClass
+  } else {
+    out <- FlowSOM::metaClustering_consensus(out$map$codes, k = k)
+  }
+  
+  # extract cluster labels from output object
+  
+  cluster <- out[labels_pre]
+  
+  pheno_clust = data.table::data.table(cluster)
+  pheno_clust[, (idvar):=ids]
+  pheno_clust[, cluster:=factor(cluster)]
+  data.table::setkeyv(pheno_clust, idvar)
+  return(pheno_clust)
+}
+
+#' Make a phenograph from a melted dataframe
+#' @export do_phenograph
+#' @import data.table
+#' @import cytofkit
+do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel', idvar='id', k=20, seed=FALSE, subsample=FALSE){
+  #' @param data a data frame in the long format
+  #' @param channels a list of channel names to use
+  #' @param valuevar the column to take as value variable
+  #' @param channelvar the column to take as channel variable
+  #' @param idvar the column to toake as id variable
+  #' @param k the number of nearest neighbours
+  #' @param seed the random seed - if provided
+  #' @param subsample number of cells to use for subsampling - if provided
+  #' @return at table with a column cluster and a column idvar
+  
+  
+  
+  pheno_dat = data.table::dcast.data.table(data[get(channelvar) %in% channels, ],paste(idvar, channelvar,sep='~'),value.var = valuevar)
+  
+  all_ids = pheno_dat[, get(idvar)]
+  
+  if (subsample == FALSE){
+    subsample=1
+  } 
+  
+  sampids = pheno_dat[, sample(get(idvar), floor(.N*subsample),replace = F)]
+  pheno_dat_samp = pheno_dat[get(idvar) %in% sampids, ]
+  ids = pheno_dat_samp[, get(idvar)]
+  pheno_dat_samp[, (idvar):=NULL]
+  if (seed){
+    set.seed(seed)
+  }
+  rpheno_out = cytofkit::Rphenograph(pheno_dat_samp)
+  cluster = igraph::membership(rpheno_out[[2]])
+  pheno_clust = data.table::data.table(cluster)
+  pheno_clust[, (idvar):=ids]
+  pheno_clust[, cluster:=factor(cluster)]
+  data.table::setkeyv(pheno_clust, idvar)
+
+  return(pheno_clust)
+}
