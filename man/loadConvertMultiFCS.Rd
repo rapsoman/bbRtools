@@ -15,7 +15,7 @@ loadConvertMultiFCS(fileList = NaN, fileDir = NaN, condDict = NaN,
 \item{condDict}{a named vector which maps Filenames to condition}
 }
 \value{
-a data/tab;e with all combined FCS files
+a data/table with all combined FCS files
 
 This is a good way to load a whole directory of files (if fileList=NaN).
 If a condition dictionary (condDict) is provided, the 'condition' column will
