@@ -478,7 +478,7 @@ get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
 #' @import flowCore
 #' @import ConsensusClusterPlus
 #' @import FlowSOM
-do_flowsom <- function(data, channels, valuevar= 'counts_transf', channelvar='channel', idvar='id', k=20, seed=FALSE, subsample=FALSE){
+do_flowsom <- function(data, channels, valuevar= 'counts_transf', channelvar='channel', idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE){
   #' @param data a data frame in the long format
   #' @param channels a list of channel names to use
   #' @param valuevar the column to take as value variable
@@ -487,6 +487,7 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf', channelvar='ch
   #' @param k the number of clusters to use for metaclustering
   #' @param seed the random seed - if provided
   #' @param subsample number of cells to use for subsampling - if provided
+  #' @param return_output should the cluster algorithm output be provided? If so the return value will be a list with the table and the original output.
   #' @return at table with a column cluster and a column idvar
   
   
@@ -549,14 +550,19 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf', channelvar='ch
   pheno_clust[, (idvar):=ids]
   pheno_clust[, cluster:=factor(cluster)]
   data.table::setkeyv(pheno_clust, idvar)
-  return(pheno_clust)
+  
+  if (return_object == FALSE){
+    return(pheno_clust)
+  } else {
+    return(list(pheno_clust, rpheno_out))
+  }
 }
 
 #' Make a phenograph from a melted dataframe
 #' @export do_phenograph
 #' @import data.table
 #' @import cytofkit
-do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel', idvar='id', k=20, seed=FALSE, subsample=FALSE){
+do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel', idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE){
   #' @param data a data frame in the long format
   #' @param channels a list of channel names to use
   #' @param valuevar the column to take as value variable
@@ -565,6 +571,7 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   #' @param k the number of nearest neighbours
   #' @param seed the random seed - if provided
   #' @param subsample number of cells to use for subsampling - if provided
+  #' @param return_output should the cluster algorithm output be provided? If so the return value will be a list with the table and the original output.
   #' @return at table with a column cluster and a column idvar
   
   
@@ -584,12 +591,16 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   if (seed){
     set.seed(seed)
   }
-  rpheno_out = cytofkit::Rphenograph(pheno_dat_samp)
+  rpheno_out = cytofkit::Rphenograph(pheno_dat_samp, k)
   cluster = rpheno_out$membership
   pheno_clust = data.table::data.table(cluster)
   pheno_clust[, (idvar):=ids]
   pheno_clust[, cluster:=factor(cluster)]
   data.table::setkeyv(pheno_clust, idvar)
 
-  return(pheno_clust)
+  if (return_object == FALSE){
+    return(pheno_clust)
+  } else {
+    return(list(pheno_clust, rpheno_out))
+  }
 }
