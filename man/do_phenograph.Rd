@@ -6,7 +6,7 @@
 \usage{
 do_phenograph(data, channels, valuevar = "counts_transf",
   channelvar = "channel", idvar = "id", k = 20, seed = FALSE,
-  subsample = FALSE)
+  subsample = FALSE, return_output = FALSE)
 }
 \arguments{
 \item{data}{a data frame in the long format}
@@ -24,6 +24,8 @@ do_phenograph(data, channels, valuevar = "counts_transf",
 \item{seed}{the random seed - if provided}
 
 \item{subsample}{number of cells to use for subsampling - if provided}
+
+\item{return_output}{should the cluster algorithm output be provided? If so the return value will be a list with the table and the original output.}
 }
 \value{
 at table with a column cluster and a column idvar

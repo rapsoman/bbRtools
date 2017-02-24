@@ -554,7 +554,7 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf', channelvar='ch
   if (return_object == FALSE){
     return(pheno_clust)
   } else {
-    return(list(pheno_clust, rpheno_out))
+    return(list(pheno_clust, out))
   }
 }
 
