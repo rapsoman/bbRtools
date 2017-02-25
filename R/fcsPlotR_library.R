@@ -478,7 +478,9 @@ get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
 #' @import flowCore
 #' @import ConsensusClusterPlus
 #' @import FlowSOM
-do_flowsom <- function(data, channels, valuevar= 'counts_transf', channelvar='channel', idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE){
+do_flowsom <- function(data, channels, valuevar= 'counts_transf', 
+                       channelvar='channel', idvar='id', k=20, seed=FALSE,
+                       subsample=FALSE, return_output=FALSE){
   #' @param data a data frame in the long format
   #' @param channels a list of channel names to use
   #' @param valuevar the column to take as value variable
@@ -551,7 +553,7 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf', channelvar='ch
   pheno_clust[, cluster:=factor(cluster)]
   data.table::setkeyv(pheno_clust, idvar)
   
-  if (return_object == FALSE){
+  if (return_output== FALSE){
     return(pheno_clust)
   } else {
     return(list(pheno_clust, out))
@@ -598,7 +600,7 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   pheno_clust[, cluster:=factor(cluster)]
   data.table::setkeyv(pheno_clust, idvar)
 
-  if (return_object == FALSE){
+  if (return_output == FALSE){
     return(pheno_clust)
   } else {
     return(list(pheno_clust, rpheno_out))
