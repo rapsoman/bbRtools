@@ -32,12 +32,18 @@ flowFrame2dt <-function(datFCS){
   # converts a flow frame from read.FCS to a data table
   dt = flowCore::exprs(datFCS)
   colnames(dt) = make.names(make.unique(colnames(dt)))
-  fil = !is.na(datFCS@parameters@data$desc)
-  colnames(dt[,fil]) <- datFCS@parameters@data$desc[fil]
+
   dt <- data.table::data.table(dt)
-  uninames = make.names(make.unique(datFCS@parameters@data$name))
-  uni_newnames = make.names(make.unique(datFCS@parameters@data$desc))
-  data.table::setnames(dt,uninames[fil],uni_newnames[fil])
+  
+  new_names <- datFCS@parameters@data$name
+  new_desc <- datFCS@parameters@data$desc
+  if (any(is.na(new_names)) & any(is.na(new_desc))){
+    uninames = make.names(make.unique(new_names))
+    uni_newnames = make.names(make.unique(new_desc))
+    data.table::setnames(dt,uninames[fil],uni_newnames[fil])
+  }
+  
+
   return(dt)
 }
 
@@ -68,7 +74,12 @@ loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN,subSample 
       }
       
       #load and convert to dt
-      tmpDT <- flowFrame2dt(loadFCS(file.path(fileDir,file)))
+      if (!is.na(fileDir)){
+        fn = file.path(fileDir,file)
+      } else {
+        fn = file
+      }
+      tmpDT <- flowFrame2dt(loadFCS(fn))
       
       if (!is.na(subSample) && is.numeric(subSample)){
         if (subSample < nrow(tmpDT)){
