@@ -32,18 +32,19 @@ flowFrame2dt <-function(datFCS){
   # converts a flow frame from read.FCS to a data table
   dt = flowCore::exprs(datFCS)
   colnames(dt) = make.names(make.unique(colnames(dt)))
-
-  dt <- data.table::data.table(dt)
+  fil = !is.na(datFCS@parameters@data$desc)
   
-  new_names <- datFCS@parameters@data$name
-  new_desc <- datFCS@parameters@data$desc
-  if (any(is.na(new_names)) & any(is.na(new_desc))){
-    uninames = make.names(make.unique(new_names))
-    uni_newnames = make.names(make.unique(new_desc))
-    data.table::setnames(dt,uninames[fil],uni_newnames[fil])
+  if (any(fil)){
+    colnames(dt[,fil]) <- datFCS@parameters@data$desc[fil]
   }
   
-
+  dt <- data.table::data.table(dt)
+  if (any(fil)){
+    uni_newnames = make.names(make.unique(datFCS@parameters@data$desc))
+    data.table::setnames(dt,colnames(dt)[fil],uni_newnames[fil])
+  }
+  
+  colnames(dt) <- make.names(make.unique(colnames(dt)))
   return(dt)
 }
 
@@ -74,12 +75,7 @@ loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN,subSample 
       }
       
       #load and convert to dt
-      if (!is.na(fileDir)){
-        fn = file.path(fileDir,file)
-      } else {
-        fn = file
-      }
-      tmpDT <- flowFrame2dt(loadFCS(fn))
+      tmpDT <- flowFrame2dt(loadFCS(file.path(fileDir,file)))
       
       if (!is.na(subSample) && is.numeric(subSample)){
         if (subSample < nrow(tmpDT)){
@@ -93,7 +89,6 @@ loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN,subSample 
   }
   return(dat)
 }
-
 #' Generates a metadata table from a
 #'
 #'
@@ -178,7 +173,7 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
     }
     
   } else if (subsample_groups){
-  min_n = min(input_dat[get(channel_var) == channels[1],list(n= .N), by=get(group_var)]$n)
+    min_n = min(input_dat[get(channel_var) == channels[1],list(n= .N), by=get(group_var)]$n)
     ids = input_dat[get(channel_var) == channels[1], list(fil = get(id_var)[sample.int(.N, min_n)]),by=get(group_var)]$fil
     
   } else {
@@ -547,10 +542,10 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
   # ConsensusClusterPlus::ConsensusClusterPlus() to get around this. However, this
   # will be fixed in the next update of FlowSOM (version 1.5); then the following 
   # (simpler) code can be used instead:
-
+  
   if (seed) {
-  out <- ConsensusClusterPlus::ConsensusClusterPlus(t(out$map$codes), maxK = k, seed = seed,writeTable = F,plot = 'pngBMP')
-  out <- out[[k]]$consensusClass
+    out <- ConsensusClusterPlus::ConsensusClusterPlus(t(out$map$codes), maxK = k, seed = seed,writeTable = F,plot = 'pngBMP')
+    out <- out[[k]]$consensusClass
   } else {
     out <- FlowSOM::metaClustering_consensus(out$map$codes, k = k)
   }
@@ -610,7 +605,7 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   pheno_clust[, (idvar):=ids]
   pheno_clust[, cluster:=factor(cluster)]
   data.table::setkeyv(pheno_clust, idvar)
-
+  
   if (return_output == FALSE){
     return(pheno_clust)
   } else {
