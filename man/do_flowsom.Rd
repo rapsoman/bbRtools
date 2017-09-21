@@ -6,7 +6,7 @@
 \usage{
 do_flowsom(data, channels, valuevar = "counts_transf",
   channelvar = "channel", idvar = "id", k = 20, seed = FALSE,
-  subsample = FALSE, return_output = FALSE)
+  subsample = FALSE, return_output = FALSE, ...)
 }
 \arguments{
 \item{data}{a data frame in the long format}

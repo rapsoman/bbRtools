@@ -86,6 +86,7 @@ loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN,subSample 
       #combine dt
       dat = rbindlist(list(dat,tmpDT[,'condition':=cond]), fill=T)
     }
+  }
   return(dat)
 }
 #' Generates a metadata table from a
@@ -146,11 +147,11 @@ getInfoFromFileList <- function(fileList,sep='_',strPos=2,censorStr='.fcs'){
 #' @export
 #' @import data.table
 calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='channel',
-                     id_var='id', group_var ='condition', scale=F,
-                     subsample_groups=F, subsample_mode='equal',
-                     verbose=T,
-                     dims=2,
-                     ...){
+  id_var='id', group_var ='condition', scale=F,
+  subsample_groups=F, subsample_mode='equal',
+  verbose=T,
+  dims=2,
+  ...){
   
   # do subsampling
   if (is.numeric(subsample_groups)){
@@ -407,9 +408,9 @@ getStats <- function(df,varName,grpVar,fkt=function(x){x},meltTab = F,bootstrapS
   df[,tCol:=NULL]
   if (meltTab == T){
     tdt <- melt(tdt,
-                id.vars=grpVar,
-                variable.factor=F,
-                variable.name='stats')
+      id.vars=grpVar,
+      variable.factor=F,
+      variable.name='stats')
   }
   return(tdt)
 }
@@ -418,9 +419,9 @@ getStats <- function(df,varName,grpVar,fkt=function(x){x},meltTab = F,bootstrapS
 #' @export
 #' @import ggplot2
 plot_sumStats <- function(df,varName = 'value',
-                          condName = 'condition',
-                          channelName = 'channel',
-                          fkt=function(x){x}){
+  condName = 'condition',
+  channelName = 'channel',
+  fkt=function(x){x}){
   stats = getStats(df,varName,c(condName,channelName),fkt,meltTab=T)
   stats = subset(stats,!stats %in% c('max_c','min_c','lower05_c','upper95_c'))
   statsCol = 'stats'
@@ -438,9 +439,9 @@ plot_sumStats <- function(df,varName = 'value',
 #' @export
 allComb = function(cDat,idvar='xcat',varvar='ycat',valvar='val'){
   cDat = data.table::melt(data.table::dcast(cDat,paste(idvar,varvar,sep='~'),value.var=valvar),
-                          id.vars = idvar,
-                          variable.name = varvar,
-                          value.name = valvar)
+    id.vars = idvar,
+    variable.name = varvar,
+    value.name = valvar)
   return(cDat)
 }
 
@@ -484,8 +485,8 @@ get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
 #' @import ConsensusClusterPlus
 #' @import FlowSOM
 do_flowsom <- function(data, channels, valuevar= 'counts_transf', 
-                       channelvar='channel', idvar='id', k=20, seed=FALSE,
-                       subsample=FALSE, return_output=FALSE, ...){
+  channelvar='channel', idvar='id', k=20, seed=FALSE,
+  subsample=FALSE, return_output=FALSE, ...){
   #' @param data a data frame in the long format
   #' @param channels a list of channel names to use
   #' @param valuevar the column to take as value variable
@@ -525,7 +526,7 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
   # run FlowSOM (initial steps prior to meta-clustering)
   
   out <- FlowSOM::ReadInput(data_FlowSOM, transform = FALSE, scale = FALSE)
-  out <- FlowSOM::BuildSOM(out,...)
+  out <- FlowSOM::BuildSOM(out, ...)
   out <- FlowSOM::BuildMST(out)
   
   # extract cluster labels (pre meta-clustering) from output object
