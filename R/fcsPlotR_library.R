@@ -146,11 +146,12 @@ getInfoFromFileList <- function(fileList,sep='_',strPos=2,censorStr='.fcs'){
 #' @return tsne object
 #' @export
 #' @import data.table
+#' @import Rtsne.multicore
 calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='channel',
   id_var='id', group_var ='condition', scale=F,
   subsample_groups=F, subsample_mode='equal',
   verbose=T,
-  dims=2,
+  dims=2, multicore=NULL,
   ...){
   
   # do subsampling
@@ -191,7 +192,11 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
     tsnedat = dt[, channels, with=F]
   }
   
-  tsne_out <- Rtsne::Rtsne(tsnedat, verbose=verbose,dims=dims,...)
+  if (is.null(multicore)){
+     tsne_out <- Rtsne::Rtsne(tsnedat, verbose=verbose,dims=dims,...)
+  } else {
+     tsne_out <- Rtsne.multicore::Rtsne.multicore(tsnedat, verbose=verbose,dims=dims, num_threads=multicore, ...)
+  }
   tsne_out$Y = data.table(tsne_out$Y)
   setnames(tsne_out$Y, names(tsne_out$Y), paste("bh",names(tsne_out$Y),sep='_'))
   tsne_out$Y$id = dt[, get(id_var)]
@@ -199,6 +204,7 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
   data.table::setkeyv(tsne_out$Y, id_var)
   tsne_out$channels = channels
   tsne_out$scale= F
+  tsne_out$multicore = multicore
   if (group_var %in% names(input_dat)){
     tsne_out$groups= input_dat[, unique(get(group_var))]
   } else {
