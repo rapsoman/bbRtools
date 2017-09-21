@@ -86,7 +86,6 @@ loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN,subSample 
       #combine dt
       dat = rbindlist(list(dat,tmpDT[,'condition':=cond]), fill=T)
     }
-  }
   return(dat)
 }
 #' Generates a metadata table from a
@@ -486,7 +485,7 @@ get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
 #' @import FlowSOM
 do_flowsom <- function(data, channels, valuevar= 'counts_transf', 
                        channelvar='channel', idvar='id', k=20, seed=FALSE,
-                       subsample=FALSE, return_output=FALSE){
+                       subsample=FALSE, return_output=FALSE, ...){
   #' @param data a data frame in the long format
   #' @param channels a list of channel names to use
   #' @param valuevar the column to take as value variable
@@ -526,7 +525,7 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
   # run FlowSOM (initial steps prior to meta-clustering)
   
   out <- FlowSOM::ReadInput(data_FlowSOM, transform = FALSE, scale = FALSE)
-  out <- FlowSOM::BuildSOM(out)
+  out <- FlowSOM::BuildSOM(out,...)
   out <- FlowSOM::BuildMST(out)
   
   # extract cluster labels (pre meta-clustering) from output object
@@ -570,7 +569,8 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
 #' @export do_phenograph
 #' @import data.table
 #' @import cytofkit
-do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel', idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE){
+do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel',
+  idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE, ...){
   #' @param data a data frame in the long format
   #' @param channels a list of channel names to use
   #' @param valuevar the column to take as value variable
@@ -599,7 +599,7 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   if (seed){
     set.seed(seed)
   }
-  rpheno_out = cytofkit::Rphenograph(pheno_dat_samp, k)
+  rpheno_out = cytofkit::Rphenograph(pheno_dat_samp, k, ...)
   cluster = rpheno_out$membership
   pheno_clust = data.table::data.table(cluster)
   pheno_clust[, (idvar):=ids]
