@@ -603,14 +603,14 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   if (subsample == FALSE){
     subsample=1
   } 
-  
+  if (seed){
+    set.seed(seed)
+  }
   sampids = pheno_dat[, sample(get(idvar), floor(.N*subsample),replace = F)]
   pheno_dat_samp = pheno_dat[get(idvar) %in% sampids, ]
   ids = pheno_dat_samp[, get(idvar)]
   pheno_dat_samp[, (idvar):=NULL]
-  if (seed){
-    set.seed(seed)
-  }
+
   rpheno_out = cytofkit::Rphenograph(pheno_dat_samp, k, ...)
   cluster = igraph::membership(rpheno_out)
   id_idx = as.numeric(names(cluster))
