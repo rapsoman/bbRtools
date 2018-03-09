@@ -612,9 +612,10 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
     set.seed(seed)
   }
   rpheno_out = cytofkit::Rphenograph(pheno_dat_samp, k, ...)
-  cluster = rpheno_out$membership
+  cluster = igraph::membership(rpheno_out)
+  id_idx = as.numeric(names(cluster))
   pheno_clust = data.table::data.table(cluster)
-  pheno_clust[, (idvar):=ids]
+  pheno_clust[, (idvar):=ids[id_idx]]
   pheno_clust[, cluster:=factor(cluster)]
   data.table::setkeyv(pheno_clust, idvar)
   
