@@ -1,14 +1,3 @@
-# library(data.table)
-# library(ggplot2)
-# library(reshape2)
-# library(tools)
-# library(flowCore)
-# library(plyr)
-# library(doMC)
-# library(boot)
-# registerDoMC()
-# getDoParWorkers()
-
 #### Helper functions for loading FCS files ####
 
 
@@ -61,7 +50,10 @@ flowFrame2dt <-function(datFCS){
 #' be equal to the conditions. Otherwise it will be the filename used.
 #' @export
 #' @import data.table
-loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN,subSample = NA){
+loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,
+                                condDict=NaN, subSample = NA,
+                                subSampleMode = 'number',
+                                preprocessfkt=NULL){
   if (is.na(fileList)){
     fileList = list.files(fileDir, pattern='*.fcs')
   }
@@ -78,11 +70,11 @@ loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,condDict=NaN,subSample 
       tmpDT <- flowFrame2dt(loadFCS(file.path(fileDir,file)))
       
       if (!is.na(subSample) && is.numeric(subSample)){
-        if (subSample < nrow(tmpDT)){
-          tmpDT = tmpDT[sample(1:nrow(tmpDT),subSample,replace = F), ]
-        } else {stop('Less cells than subSample size!')}
+          tmpDT = tmpDT[subsample_unequal(1:nrow(tmpDT), n=subSample, mode=subSampleMode), ]
       }
-      
+      if (!is.null(preprocessfkt)){
+          tmpDT <- preprocessfkt(tmpDT)
+      }
       #combine dt
       dat = rbindlist(list(dat,tmpDT[,'condition':=cond]), fill=T)
     }
@@ -147,6 +139,7 @@ getInfoFromFileList <- function(fileList,sep='_',strPos=2,censorStr='.fcs'){
 #' @export
 #' @import data.table
 #' @import Rtsne.multicore
+#' @import Rtsne
 calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='channel',
   id_var='id', group_var ='condition', scale=F,
   subsample_groups=F, subsample_mode='equal',
@@ -216,6 +209,18 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
   return(tsne_out)
   
 }
+
+subsample_unequal <- function(ids, n, mode='number'){
+    nids = length(ids)
+    if (mode == 'fraction'){
+        n = floor(nids * n)
+    }
+    n = min(n, nids)
+    sampids = sample(ids, n, replace=F)
+    return(sampids)
+}
+
+
 
 ### Network plotting functions ####
 
@@ -575,7 +580,7 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
 #' Make a phenograph from a melted dataframe
 #' @export do_phenograph
 #' @import data.table
-#' @import cytofkit
+#' @import cytofkit, igraph
 do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel',
   idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE, ...){
   #' @param data a data frame in the long format
@@ -598,19 +603,20 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   if (subsample == FALSE){
     subsample=1
   } 
-  
+  if (seed){
+    set.seed(seed)
+  }
   sampids = pheno_dat[, sample(get(idvar), floor(.N*subsample),replace = F)]
   pheno_dat_samp = pheno_dat[get(idvar) %in% sampids, ]
   ids = pheno_dat_samp[, get(idvar)]
   pheno_dat_samp[, (idvar):=NULL]
-  if (seed){
-    set.seed(seed)
-  }
+
   rpheno_out = cytofkit::Rphenograph(pheno_dat_samp, k, ...)
-  cluster = rpheno_out$membership
-  pheno_clust = data.table::data.table(cluster)
-  pheno_clust[, (idvar):=ids]
-  pheno_clust[, cluster:=factor(cluster)]
+  cluster = igraph::membership(rpheno_out)
+  id_idx = as.numeric(names(cluster))
+  pheno_clust = data.table::data.table(x=ids)
+  setnames(pheno_clust, 'x', idvar)
+  pheno_clust[, cluster:=factor(cluster[as.character(seq(length(ids)))])]
   data.table::setkeyv(pheno_clust, idvar)
   
   if (return_output == FALSE){
