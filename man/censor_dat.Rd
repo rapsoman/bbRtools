@@ -10,9 +10,9 @@ censor_dat(x, quant = 0.999, symmetric = F)
 \arguments{
 \item{x}{values to censor}
 
-\item{quant}{quantile to censor by}
+\item{quant}{quantile to censor, i.e. how many percent of values are considered outliers}
 
-\item{symmetric}{censor on both side. The quantile is then seen as the inner quantile.}
+\item{symmetric}{censor on both side. In this case the outliers are assumed to be symetric on both sides. For example if a quantile of 5\% (0.05) is choosen, in the symetric case 2.5\% (0.025) of values are censored on both sides.}
 }
 \value{
 returns the percentile of each value of x

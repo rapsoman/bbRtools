@@ -5,7 +5,7 @@
 \title{Loads multiple FCS files at once}
 \usage{
 loadConvertMultiFCS(fileList = NaN, fileDir = NaN, condDict = NaN,
-  subSample = NA)
+  subSample = NA, subSampleMode = "number", preprocessfkt = NULL)
 }
 \arguments{
 \item{fileList}{Vector of filename to be loaded. If NaN all fcs files are loaded}
