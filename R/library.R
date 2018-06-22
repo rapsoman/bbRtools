@@ -70,10 +70,10 @@ loadConvertMultiFCS <- function(fileList=NaN,fileDir=NaN,
       tmpDT <- flowFrame2dt(loadFCS(file.path(fileDir,file)))
       
       if (!is.na(subSample) && is.numeric(subSample)){
-          tmpDT = tmpDT[subsample_unequal(1:nrow(tmpDT), n=subSample, mode=subSampleMode), ]
+        tmpDT = tmpDT[subsample_unequal(1:nrow(tmpDT), n=subSample, mode=subSampleMode), ]
       }
       if (!is.null(preprocessfkt)){
-          tmpDT <- preprocessfkt(tmpDT)
+        tmpDT <- preprocessfkt(tmpDT)
       }
       #combine dt
       dat = rbindlist(list(dat,tmpDT[,'condition':=cond]), fill=T)
@@ -141,11 +141,11 @@ getInfoFromFileList <- function(fileList,sep='_',strPos=2,censorStr='.fcs'){
 #' @import Rtsne.multicore
 #' @import Rtsne
 calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='channel',
-  id_var='id', group_var ='condition', scale=F,
-  subsample_groups=F, subsample_mode='equal',
-  verbose=T,
-  dims=2, multicore=NULL,
-  ...){
+                     id_var='id', group_var ='condition', scale=F,
+                     subsample_groups=F, subsample_mode='equal',
+                     verbose=T,
+                     dims=2, multicore=NULL,
+                     ...){
   
   # do subsampling
   if (is.numeric(subsample_groups)){
@@ -186,9 +186,9 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
   }
   
   if (is.null(multicore)){
-     tsne_out <- Rtsne::Rtsne(tsnedat, verbose=verbose,dims=dims,...)
+    tsne_out <- Rtsne::Rtsne(tsnedat, verbose=verbose,dims=dims,...)
   } else {
-     tsne_out <- Rtsne.multicore::Rtsne.multicore(tsnedat, verbose=verbose,dims=dims, num_threads=multicore, ...)
+    tsne_out <- Rtsne.multicore::Rtsne.multicore(tsnedat, verbose=verbose,dims=dims, num_threads=multicore, ...)
   }
   tsne_out$Y = data.table(tsne_out$Y)
   setnames(tsne_out$Y, names(tsne_out$Y), paste("bh",names(tsne_out$Y),sep='_'))
@@ -211,13 +211,13 @@ calcTSNE <- function(input_dat, channels, value_var='counts', channel_var='chann
 }
 
 subsample_unequal <- function(ids, n, mode='number'){
-    nids = length(ids)
-    if (mode == 'fraction'){
-        n = floor(nids * n)
-    }
-    n = min(n, nids)
-    sampids = sample(ids, n, replace=F)
-    return(sampids)
+  nids = length(ids)
+  if (mode == 'fraction'){
+    n = floor(nids * n)
+  }
+  n = min(n, nids)
+  sampids = sample(ids, n, replace=F)
+  return(sampids)
 }
 
 
@@ -352,8 +352,8 @@ getPerc <- function(x){
 #' remove the outliers on the upper side by capping the values at the provided quantile
 #'
 #' @param x values to censor
-#' @param quant quantile to censor by
-#' @param symmetric censor on both side. The quantile is then seen as the inner quantile.
+#' @param quant quantile to censor, i.e. how many percent of values are considered outliers
+#' @param symmetric censor on both side. In this case the outliers are assumed to be symetric on both sides. For example if a quantile of 5\% (0.05) is choosen, in the symetric case 2.5\% (0.025) of values are censored on both sides.
 #'
 #' @return returns the percentile of each value of x
 #' @export
@@ -367,7 +367,7 @@ censor_dat = function(x, quant = 0.999, symmetric=F){
   
   if(symmetric){
     q = stats::quantile(x, lower_quant)
-    x[x < lower_quant] = lower_quant
+    x[x < q] = q
   }
   return(x)
 }
@@ -419,9 +419,9 @@ getStats <- function(df,varName,grpVar,fkt=function(x){x},meltTab = F,bootstrapS
   df[,tCol:=NULL]
   if (meltTab == T){
     tdt <- melt(tdt,
-      id.vars=grpVar,
-      variable.factor=F,
-      variable.name='stats')
+                id.vars=grpVar,
+                variable.factor=F,
+                variable.name='stats')
   }
   return(tdt)
 }
@@ -430,9 +430,9 @@ getStats <- function(df,varName,grpVar,fkt=function(x){x},meltTab = F,bootstrapS
 #' @export
 #' @import ggplot2
 plot_sumStats <- function(df,varName = 'value',
-  condName = 'condition',
-  channelName = 'channel',
-  fkt=function(x){x}){
+                          condName = 'condition',
+                          channelName = 'channel',
+                          fkt=function(x){x}){
   stats = getStats(df,varName,c(condName,channelName),fkt,meltTab=T)
   stats = subset(stats,!stats %in% c('max_c','min_c','lower05_c','upper95_c'))
   statsCol = 'stats'
@@ -450,9 +450,9 @@ plot_sumStats <- function(df,varName = 'value',
 #' @export
 allComb = function(cDat,idvar='xcat',varvar='ycat',valvar='val'){
   cDat = data.table::melt(data.table::dcast(cDat,paste(idvar,varvar,sep='~'),value.var=valvar),
-    id.vars = idvar,
-    variable.name = varvar,
-    value.name = valvar)
+                          id.vars = idvar,
+                          variable.name = varvar,
+                          value.name = valvar)
   return(cDat)
 }
 
@@ -496,8 +496,8 @@ get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
 #' @import ConsensusClusterPlus
 #' @import FlowSOM
 do_flowsom <- function(data, channels, valuevar= 'counts_transf', 
-  channelvar='channel', idvar='id', k=20, seed=FALSE,
-  subsample=FALSE, return_output=FALSE, ...){
+                       channelvar='channel', idvar='id', k=20, seed=FALSE,
+                       subsample=FALSE, return_output=FALSE, ...){
   #' @param data a data frame in the long format
   #' @param channels a list of channel names to use
   #' @param valuevar the column to take as value variable
@@ -580,9 +580,10 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
 #' Make a phenograph from a melted dataframe
 #' @export do_phenograph
 #' @import data.table
-#' @import cytofkit, igraph
+#' @import cytofkit
+#' @import igraph
 do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel',
-  idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE, ...){
+                         idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE, ...){
   #' @param data a data frame in the long format
   #' @param channels a list of channel names to use
   #' @param valuevar the column to take as value variable
@@ -610,7 +611,7 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   pheno_dat_samp = pheno_dat[get(idvar) %in% sampids, ]
   ids = pheno_dat_samp[, get(idvar)]
   pheno_dat_samp[, (idvar):=NULL]
-
+  
   rpheno_out = cytofkit::Rphenograph(pheno_dat_samp, k, ...)
   cluster = igraph::membership(rpheno_out)
   id_idx = as.numeric(names(cluster))
