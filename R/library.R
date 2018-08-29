@@ -5,6 +5,7 @@
 #'
 #' @param filePath path to the FCS file
 #' @return A flowframe object
+#' @importFrom flowCore read.FCS
 #' @export
 loadFCS <-function(filePath, ...){
   # a wrapper to the standard read.FCS, optimized for cyTOF data
@@ -17,6 +18,7 @@ loadFCS <-function(filePath, ...){
 #' @param datFCS A flowframe e.g. from read.FCS or loadFCS
 #' @return A data.table with row=cell, column=Channel
 #' @import data.table
+#' @importFrom flowCore exprs
 flowFrame2dt <-function(datFCS){
   # converts a flow frame from read.FCS to a data table
   dt = flowCore::exprs(datFCS)
@@ -492,7 +494,7 @@ get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
 #'  Run flowsom on a melted data table
 #' @export do_flowsom
 #' @import data.table
-#' @import flowCore
+#' @importFrom flowCore flowFrame
 #' @import ConsensusClusterPlus
 #' @import FlowSOM
 do_flowsom <- function(data, channels, valuevar= 'counts_transf', 
@@ -580,7 +582,7 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
 #' Make a phenograph from a melted dataframe
 #' @export do_phenograph
 #' @import data.table
-#' @import cytofkit
+#' @importFrom cytofkit Rphenograph
 #' @importFrom igraph membership
 do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel',
                          idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE, ...){
