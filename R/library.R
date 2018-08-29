@@ -581,7 +581,7 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
 #' @export do_phenograph
 #' @import data.table
 #' @import cytofkit
-#' @import igraph
+#' @importFrom igraph membership
 do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel',
                          idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE, ...){
   #' @param data a data frame in the long format
