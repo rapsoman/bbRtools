@@ -473,6 +473,7 @@ equalSamp  = function(dat,col='condition'){
 #' Calculate a correlation matrix from a data table
 #' @export get_cormat
 #' @import data.table
+#' @import dplyr
 get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
   #' @param data: a data table
   #' @param xcol: the column name to be taken as x column
@@ -615,7 +616,7 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   pheno_dat_samp[, (idvar):=NULL]
   
   rpheno_out = Rphenograph::Rphenograph(pheno_dat_samp, k, ...)
-  cluster = igraph::membership(rpheno_out)
+  cluster = igraph::membership(rpheno_out[[2]])
   id_idx = as.numeric(names(cluster))
   pheno_clust = data.table::data.table(x=ids)
   setnames(pheno_clust, 'x', idvar)
@@ -625,6 +626,9 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   if (return_output == FALSE){
     return(pheno_clust)
   } else {
-    return(list(pheno_clust, rpheno_out))
+    # Rphenograph has changed the output to return [igraph_graph, communities]
+    # Before it was only communities. To not break compatiblities, the order of this
+    # output is changed.
+    return(list(pheno_clust, rpheno_out[[2]], rpheno_out[[1]]))
   }
 }
