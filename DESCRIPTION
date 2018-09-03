@@ -7,6 +7,7 @@ Description: A package developped in the Bodenmiller lab to help
     new users to plot their data quickly with R.
 License: GPL-3
 LazyData: TRUE
+biocViews:
 Imports:
     data.table,
     ggplot2,
@@ -18,7 +19,9 @@ Imports:
     igraph,
     ConsensusClusterPlus,
     FlowSOM,
-    Rtsne.multicore,
-    cytofkit
-RoxygenNote: 6.0.1
+    Rtsne.multicore
+Remotes:
+    BodenmillerGroup/Rphenograph
+RoxygenNote: 6.1.0
+Encoding: UTF-8
 Suggests: testthat

@@ -582,7 +582,7 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
 #' Make a phenograph from a melted dataframe
 #' @export do_phenograph
 #' @import data.table
-#' @importFrom cytofkit Rphenograph
+#' @importFrom Rphenograph Rphenograph
 #' @importFrom igraph membership
 do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel',
                          idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE, ...){
@@ -614,7 +614,7 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   ids = pheno_dat_samp[, get(idvar)]
   pheno_dat_samp[, (idvar):=NULL]
   
-  rpheno_out = cytofkit::Rphenograph(pheno_dat_samp, k, ...)
+  rpheno_out = Rphenograph::Rphenograph(pheno_dat_samp, k, ...)
   cluster = igraph::membership(rpheno_out)
   id_idx = as.numeric(names(cluster))
   pheno_clust = data.table::data.table(x=ids)

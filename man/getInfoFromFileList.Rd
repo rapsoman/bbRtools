@@ -4,7 +4,8 @@
 \alias{getInfoFromFileList}
 \title{Parses a list of strings and gets the corresponding information}
 \usage{
-getInfoFromFileList(fileList, sep = "_", strPos = 2, censorStr = ".fcs")
+getInfoFromFileList(fileList, sep = "_", strPos = 2,
+  censorStr = ".fcs")
 }
 \description{
 See getInfoFromString for more information
