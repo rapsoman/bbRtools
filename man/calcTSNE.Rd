@@ -4,10 +4,10 @@
 \alias{calcTSNE}
 \title{Calculates the bhSNE from a melted data table}
 \usage{
-calcTSNE(input_dat, channels, value_var = "counts", channel_var = "channel",
-  id_var = "id", group_var = "condition", scale = F,
-  subsample_groups = F, subsample_mode = "equal", verbose = T, dims = 2,
-  multicore = NULL, ...)
+calcTSNE(input_dat, channels, value_var = "counts",
+  channel_var = "channel", id_var = "id", group_var = "condition",
+  scale = F, subsample_groups = F, subsample_mode = "equal",
+  verbose = T, dims = 2, multicore = NULL, ...)
 }
 \arguments{
 \item{input_dat}{melted data_table}
