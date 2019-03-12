@@ -5,6 +5,7 @@
 #'
 #' @param filePath path to the FCS file
 #' @return A flowframe object
+#' @importFrom flowCore read.FCS
 #' @export
 loadFCS <-function(filePath, ...){
   # a wrapper to the standard read.FCS, optimized for cyTOF data
@@ -17,6 +18,7 @@ loadFCS <-function(filePath, ...){
 #' @param datFCS A flowframe e.g. from read.FCS or loadFCS
 #' @return A data.table with row=cell, column=Channel
 #' @import data.table
+#' @importFrom flowCore exprs
 flowFrame2dt <-function(datFCS){
   # converts a flow frame from read.FCS to a data table
   dt = flowCore::exprs(datFCS)
@@ -471,6 +473,7 @@ equalSamp  = function(dat,col='condition'){
 #' Calculate a correlation matrix from a data table
 #' @export get_cormat
 #' @import data.table
+#' @import dplyr
 get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
   #' @param data: a data table
   #' @param xcol: the column name to be taken as x column
@@ -492,7 +495,7 @@ get_cormat <- function(data, xcol, ycol, valuecol, method='pearson', pval = F){
 #'  Run flowsom on a melted data table
 #' @export do_flowsom
 #' @import data.table
-#' @import flowCore
+#' @importFrom flowCore flowFrame
 #' @import ConsensusClusterPlus
 #' @import FlowSOM
 do_flowsom <- function(data, channels, valuevar= 'counts_transf', 
@@ -580,8 +583,8 @@ do_flowsom <- function(data, channels, valuevar= 'counts_transf',
 #' Make a phenograph from a melted dataframe
 #' @export do_phenograph
 #' @import data.table
-#' @import cytofkit
-#' @import igraph
+#' @importFrom Rphenograph Rphenograph
+#' @importFrom igraph membership
 do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='channel',
                          idvar='id', k=20, seed=FALSE, subsample=FALSE, return_output=FALSE, ...){
   #' @param data a data frame in the long format
@@ -623,6 +626,9 @@ do_phenograph<- function(data, channels, valuevar= 'counts_transf', channelvar='
   if (return_output == FALSE){
     return(pheno_clust)
   } else {
-    return(list(pheno_clust, rpheno_out))
+    # Rphenograph has changed the output to return [igraph_graph, communities]
+    # Before it was only communities. To not break compatiblities, the order of this
+    # output is changed.
+    return(list(pheno_clust, rpheno_out[[2]], rpheno_out[[1]]))
   }
 }
