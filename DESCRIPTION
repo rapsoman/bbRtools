@@ -22,7 +22,7 @@ Imports:
     Rtsne.multicore,
     Rphenograph
 Remotes:
-    BodenmillerGroup/Rphenograph
+    BodenmillerGroup/Rphenograph,
     elbamos/largeVis
 RoxygenNote: 6.1.0
 Encoding: UTF-8
