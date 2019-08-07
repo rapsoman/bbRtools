@@ -23,6 +23,7 @@ Imports:
     Rphenograph
 Remotes:
     BodenmillerGroup/Rphenograph
+    elbamos/largeVis
 RoxygenNote: 6.1.0
 Encoding: UTF-8
 Suggests: testthat
