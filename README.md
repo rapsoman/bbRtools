@@ -4,6 +4,8 @@ Various R tools for the Bodenmiller lab
 
 ### Installation
 
+On Windows platform please install RTools first: https://cran.r-project.org/bin/windows/Rtools/
+
 To install the latest version from the github repository, use:
 
 ``` r
