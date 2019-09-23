@@ -1,7 +1,7 @@
 Package: bbRtools
 Type: Package
 Title: A helper package to for cyTOF R scripts
-Version: 0.6.0
+Version: 0.6.1
 Authors@R: person("Vito", "Zanotelli", email = "vito.zanotelli@gmail.com", role = c("aut", "cre"))
 Description: A package developped in the Bodenmiller lab to help
     new users to plot their data quickly with R.
@@ -18,12 +18,14 @@ Imports:
     Rtsne,
     igraph,
     ConsensusClusterPlus,
-    FlowSOM,
+    cluster,
+    Rphenograph,
     Rtsne.multicore,
-    Rphenograph
+    FlowSOM
 Remotes:
     BodenmillerGroup/Rphenograph,
-    elbamos/largeVis
+    elbamos/largeVis,
+    RGLab/Rtsne.multicore 
 RoxygenNote: 6.1.0
 Encoding: UTF-8
 Suggests: testthat
