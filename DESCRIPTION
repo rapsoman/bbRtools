@@ -19,8 +19,7 @@ Imports:
     ConsensusClusterPlus,
     cluster,
     Rphenograph,
-    Rtsne.multicore,
-    FlowSOM
+    Rtsne.multicore
 Remotes:
     BodenmillerGroup/Rphenograph,
     elbamos/largeVis,
