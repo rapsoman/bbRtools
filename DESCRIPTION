@@ -16,7 +16,6 @@ Imports:
     plyr,
     boot,
     Rtsne,
-    igraph,
     ConsensusClusterPlus,
     cluster,
     Rphenograph,
